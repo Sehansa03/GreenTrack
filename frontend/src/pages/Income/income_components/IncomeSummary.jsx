@@ -1,4 +1,8 @@
-export default function IncomeSummary({ total, incomeCount = 0 }) {
+export default function IncomeSummary({
+  total,
+  incomeCount = 0,
+  currency = "LKR",
+}) {
   return (
     <div style={summaryGrid}>
 
@@ -9,7 +13,7 @@ export default function IncomeSummary({ total, incomeCount = 0 }) {
         </div>
 
         <h2 style={value}>
-          Rs. {Number(total).toLocaleString()}
+          {currency} {Number(total).toLocaleString()}
         </h2>
 
         <p style={description}>
@@ -91,3 +95,4 @@ const description = {
   color: "rgba(255,255,255,0.3)",
   margin: 0,
 };
+

@@ -260,9 +260,11 @@ const select = {
   width: "100%",
   padding: "11px 12px",
   borderRadius: 10,
-  background: "rgba(255,255,255,0.05)",
-  border: "1px solid rgba(255,255,255,0.08)",
-  color: "#fff",
+  background: "#151d18",
+  border: "1px solid rgba(74,222,128,0.18)",
+  color: "#f9fafb",
+  outline: "none",
+  cursor: "pointer",
 };
 
 const formStyle = {

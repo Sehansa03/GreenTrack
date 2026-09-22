@@ -7,6 +7,7 @@ import { authAPI } from "../../api/auth";
 
 import IncomeExpenseChart from "./IncomeExpenseChart";
 import ExpenseDistributionChart from "./ExpenseDistributionChart";
+import MonthlyFinancialTrend from "./MonthlyFinancialTrend";
 
 export default function Analytics() {
   const [incomes, setIncomes] = useState([]);
@@ -215,9 +216,12 @@ export default function Analytics() {
           Track your financial activity over time
         </p>
 
-        <div style={largeChartPlaceholder}>
-          Monthly chart coming next
-        </div>
+          <MonthlyFinancialTrend
+    incomes={incomes}
+    expenses={expenses}
+    baseCurrency={baseCurrency}
+    convertToBase={convertToBase}
+  />
 
       </div>
 

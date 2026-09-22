@@ -8,6 +8,7 @@ import { authAPI } from "../../api/auth";
 import IncomeExpenseChart from "./IncomeExpenseChart";
 import ExpenseDistributionChart from "./ExpenseDistributionChart";
 import MonthlyFinancialTrend from "./MonthlyFinancialTrend";
+import FinancialInsights from "./FinancialInsights";
 
 export default function Analytics() {
   const [incomes, setIncomes] = useState([]);
@@ -225,6 +226,32 @@ export default function Analytics() {
 
       </div>
 
+      <div style={insightsSection}>
+  <div style={insightsHeader}>
+    <div>
+      <h3 style={chartTitle}>Financial Insights</h3>
+      <p style={chartSubtitle}>
+        Understand your spending patterns and financial performance
+      </p>
+    </div>
+
+    <div style={insightsBadge}>
+      ● Live analysis
+    </div>
+  </div>
+
+  <FinancialInsights
+    incomes={incomes}
+    expenses={expenses}
+    totalIncome={totalIncome}
+    totalExpense={totalExpense}
+    balance={balance}
+    savingsRate={savingsRate}
+    baseCurrency={baseCurrency}
+    convertToBase={convertToBase}
+  />
+</div>
+
     </div>
   );
 }
@@ -410,4 +437,30 @@ const largeChartPlaceholder = {
   justifyContent: "center",
   color: "rgba(255,255,255,0.2)",
   fontSize: 13,
+};
+
+const insightsSection = {
+  background: "#0d1410",
+  border: "1px solid rgba(255,255,255,0.06)",
+  borderRadius: 16,
+  padding: 22,
+  marginTop: 22,
+};
+
+const insightsHeader = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "flex-start",
+  gap: 20,
+};
+
+const insightsBadge = {
+  padding: "6px 10px",
+  borderRadius: 20,
+  background: "rgba(74,222,128,0.08)",
+  border: "1px solid rgba(74,222,128,0.15)",
+  color: "#4ade80",
+  fontSize: 10,
+  fontWeight: 600,
+  whiteSpace: "nowrap",
 };

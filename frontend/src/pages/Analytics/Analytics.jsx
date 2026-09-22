@@ -6,6 +6,7 @@ import { currencyAPI } from "../../api/currency";
 import { authAPI } from "../../api/auth";
 
 import IncomeExpenseChart from "./IncomeExpenseChart";
+import ExpenseDistributionChart from "./ExpenseDistributionChart";
 
 export default function Analytics() {
   const [incomes, setIncomes] = useState([]);
@@ -194,9 +195,11 @@ export default function Analytics() {
             See where your money is going
           </p>
 
-          <div style={chartPlaceholder}>
-            Chart coming next
-          </div>
+          <ExpenseDistributionChart
+            expenses={expenses}
+            baseCurrency={baseCurrency}
+            convertToBase={convertToBase}
+          />
         </div>
 
       </div>

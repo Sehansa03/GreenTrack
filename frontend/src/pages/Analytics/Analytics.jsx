@@ -5,6 +5,8 @@ import { expenseAPI } from "../../api/expense";
 import { currencyAPI } from "../../api/currency";
 import { authAPI } from "../../api/auth";
 
+import IncomeExpenseChart from "./IncomeExpenseChart";
+
 export default function Analytics() {
   const [incomes, setIncomes] = useState([]);
   const [expenses, setExpenses] = useState([]);
@@ -176,9 +178,11 @@ export default function Analytics() {
             Compare your total income and spending
           </p>
 
-          <div style={chartPlaceholder}>
-            Chart coming next
-          </div>
+          <IncomeExpenseChart
+            totalIncome={totalIncome}
+            totalExpense={totalExpense}
+            currency={baseCurrency}
+          />
         </div>
 
         <div style={chartCard}>

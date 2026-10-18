@@ -6,19 +6,23 @@ const userSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
+
     email: {
       type: String,
       required: true,
       unique: true,
     },
+
     password: {
       type: String,
       required: true,
     },
+
     country: {
       type: String,
       required: true,
     },
+
     currency: {
       type: String,
       required: true,
@@ -26,12 +30,12 @@ const userSchema = new mongoose.Schema(
     },
 
     avatar: {
-  type: String, // image URL or filename
-  default: "",
-},
-
+      type: String,
+      default: "",
+    },
   },
   { timestamps: true }
 );
 
-module.exports = mongoose.model("User", userSchema);
+module.exports =
+  mongoose.models.User || mongoose.model("User", userSchema);

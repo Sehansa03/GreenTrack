@@ -13,6 +13,8 @@ import Income from "./pages/Income/Income";
 import Expense from "./pages/Expense/Expense";
 //for analytics page
 import Analytics from "./pages/Analytics/Analytics";
+//for budgets page
+import Budgets from "./pages/Budgets/Budgets";
 
 
 import Navbar  from "./components/Navbar";
@@ -73,6 +75,7 @@ export default function App() {
         <Route path="/income"    element={<AppLayout><Income    /></AppLayout>} />
         <Route path="/expense" element={<AppLayout><Expense /></AppLayout>} />
         <Route path="/charts" element={<AppLayout><Analytics /></AppLayout>} />
+        <Route path="/budgets" element={<AppLayout><Budgets /></AppLayout>} />
         {/* 404 fallback */}
         <Route path="*" element={
           <PublicLayout>

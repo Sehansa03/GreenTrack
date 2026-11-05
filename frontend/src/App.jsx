@@ -1,5 +1,6 @@
 import { Routes, Route } from "react-router-dom";
 import { useState } from "react";
+import { CurrencyProvider } from "./context/CurrencyContext";
 
 
 import Landing   from "./pages/Landing";
@@ -15,6 +16,8 @@ import Expense from "./pages/Expense/Expense";
 import Analytics from "./pages/Analytics/Analytics";
 //for budgets page
 import Budgets from "./pages/Budgets/Budgets";
+//for reports page
+import Reports from "./pages/Reports/Reports";
 
 
 import Navbar  from "./components/Navbar";
@@ -63,6 +66,7 @@ function AppLayout({ children }) {
 export default function App() {
   return (
     
+      <CurrencyProvider>
       <Routes>
 
         {/* Public pages — show Navbar + Footer */}
@@ -76,6 +80,8 @@ export default function App() {
         <Route path="/expense" element={<AppLayout><Expense /></AppLayout>} />
         <Route path="/charts" element={<AppLayout><Analytics /></AppLayout>} />
         <Route path="/budgets" element={<AppLayout><Budgets /></AppLayout>} />
+        <Route path="/reports" element={<AppLayout><Reports /></AppLayout>} />
+
         {/* 404 fallback */}
         <Route path="*" element={
           <PublicLayout>
@@ -103,6 +109,7 @@ export default function App() {
         } />
 
       </Routes>
+      </CurrencyProvider>
    
   );
 }

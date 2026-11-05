@@ -1,6 +1,7 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { authAPI } from "../api/auth";
+import ProfileModal from "./ProfileModal";
 
 const navItems = [
   {
@@ -94,6 +95,7 @@ export default function Sidebar({ collapsed = false, onToggle }) {
   const navigate = useNavigate();
 
   const [user, setUser] = useState(null);
+  const [showProfile, setShowProfile] = useState(false);
 
   useEffect(() => {
     const loadUser = async () => {
@@ -266,30 +268,35 @@ export default function Sidebar({ collapsed = false, onToggle }) {
           padding: collapsed ? "12px 8px" : "12px 10px",
           flexShrink: 0,
         }}>
-          {/* User row — only when expanded */}
-         {!collapsed && user && (
-  <div
+          {/* User row — opens profile modal */}
+{user && (
+  <button
+    onClick={() => setShowProfile(true)}
+    title={collapsed ? "Profile" : "View profile"}
     style={{
       display: "flex",
       alignItems: "center",
+      justifyContent: collapsed ? "center" : "flex-start",
       gap: 10,
-      padding: "9px 10px",
+      width: "100%",
+      padding: collapsed ? "9px 0" : "9px 10px",
       borderRadius: 10,
       background: "rgba(255,255,255,0.03)",
       border: "1px solid rgba(255,255,255,0.06)",
       marginBottom: 8,
+      cursor: "pointer",
+      textAlign: "left",
     }}
   >
-    {/* AVATAR */}
     <div
       style={{
         width: 30,
         height: 30,
+        minWidth: 30,
         borderRadius: "50%",
         background: user.avatar
-          ? `url(${user.avatar})`
+          ? `url(${user.avatar}) center/cover`
           : "linear-gradient(135deg,#16a34a,#4ade80)",
-        backgroundSize: "cover",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
@@ -301,30 +308,17 @@ export default function Sidebar({ collapsed = false, onToggle }) {
       {!user.avatar && (user.fullName?.[0] || "U")}
     </div>
 
-    {/* NAME + INFO */}
-    <div style={{ minWidth: 0, flex: 1 }}>
-      <p
-        style={{
-          fontSize: 13,
-          fontWeight: 600,
-          color: "#fff",
-          margin: 0,
-        }}
-      >
-        {user.fullName}
-      </p>
-
-      <p
-        style={{
-          fontSize: 11,
-          color: "rgba(255,255,255,0.3)",
-          margin: 0,
-        }}
-      >
-        {user.email}
-      </p>
-    </div>
-  </div>
+    {!collapsed && (
+      <div style={{ minWidth: 0, flex: 1 }}>
+        <p style={{ fontSize: 13, fontWeight: 600, color: "#fff", margin: 0 }}>
+          {user.fullName}
+        </p>
+        <p style={{ fontSize: 11, color: "rgba(255,255,255,0.3)", margin: 0 }}>
+          {user.email}
+        </p>
+      </div>
+    )}
+  </button>
 )}
 
           {/* Sign out */}
@@ -356,6 +350,10 @@ export default function Sidebar({ collapsed = false, onToggle }) {
           </button>
         </div>
       </aside>
+      {showProfile && (
+          <ProfileModal onClose={() => setShowProfile(false)} />
+      )}
+
     </>
   );
 }

@@ -1,9 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { incomeAPI } from "../../api/income";
 import { expenseAPI } from "../../api/expense";
-import { currencyAPI } from "../../api/currency";
-import { authAPI } from "../../api/auth";
+import { useCurrency } from "../../context/CurrencyContext";
 
 import IncomeExpenseChart from "./IncomeExpenseChart";
 import ExpenseDistributionChart from "./ExpenseDistributionChart";
@@ -14,84 +13,90 @@ export default function Analytics() {
   const [incomes, setIncomes] = useState([]);
   const [expenses, setExpenses] = useState([]);
 
-  const [baseCurrency, setBaseCurrency] = useState("LKR");
-  const [rates, setRates] = useState({});
+  const [dataLoading, setDataLoading] = useState(true);
+  const [error, setError] = useState("");
 
-  const [loading, setLoading] = useState(true);
+  // GLOBAL CURRENCY
+  const {
+    currency: baseCurrency,
+    loading: profileLoading,
+    ratesLoading,
+    convertAmount,
+    hasRate,
+  } = useCurrency();
 
+  const loading =
+    dataLoading || profileLoading || ratesLoading;
+
+  // LOAD INCOME AND EXPENSE DATA
   useEffect(() => {
-    loadAnalyticsData();
-  }, []);
+    let active = true;
 
-  const loadAnalyticsData = async () => {
-    try {
-      setLoading(true);
+    const loadAnalyticsData = async () => {
+      try {
+        setDataLoading(true);
+        setError("");
 
-      const [incomeRes, expenseRes, profileRes] =
-        await Promise.all([
+        const [incomeRes, expenseRes] = await Promise.all([
           incomeAPI.getAll(),
           expenseAPI.getAll(),
-          authAPI.getProfile(),
         ]);
 
-      setIncomes(incomeRes.data.data || []);
-      setExpenses(expenseRes.data.data || []);
+        if (!active) return;
 
-      const currency =
-        profileRes.data.currency || "LKR";
+        setIncomes(incomeRes.data?.data || []);
+        setExpenses(expenseRes.data?.data || []);
+      } catch (err) {
+        console.error("Failed to load analytics:", err);
 
-      setBaseCurrency(currency);
+        if (active) {
+          setError("Unable to load analytics data.");
+        }
+      } finally {
+        if (active) {
+          setDataLoading(false);
+        }
+      }
+    };
 
-      const rateRes =
-        await currencyAPI.getRates(currency);
+    loadAnalyticsData();
 
-      setRates(rateRes.data.rates || {});
-    } catch (error) {
-      console.error(
-        "Failed to load analytics data:",
-        error
-      );
-    } finally {
-      setLoading(false);
-    }
-  };
+    return () => {
+      active = false;
+    };
+  }, []);
 
+  // CONVERT AMOUNTS
+  // Existing chart components expect numeric values.
   const convertToBase = (amount, currency) => {
-    const numericAmount = Number(amount || 0);
-
-    if (currency === baseCurrency) {
-      return numericAmount;
-    }
-
-    const rate = rates[currency];
-
-    if (!rate) {
-      return 0;
-    }
-
-    return numericAmount / Number(rate);
+    return convertAmount(amount, currency) ?? 0;
   };
 
-  const totalIncome = incomes.reduce(
-    (sum, income) =>
-      sum +
-      convertToBase(
+  // CALCULATE TOTAL INCOME
+  const totalIncome = useMemo(() => {
+    return incomes.reduce((sum, income) => {
+      const converted = convertAmount(
         income.amount,
         income.currency
-      ),
-    0
-  );
+      );
 
-  const totalExpense = expenses.reduce(
-    (sum, expense) =>
-      sum +
-      convertToBase(
+      return sum + (converted ?? 0);
+    }, 0);
+  }, [incomes, convertAmount]);
+
+  // CALCULATE TOTAL EXPENSE
+  const totalExpense = useMemo(() => {
+    return expenses.reduce((sum, expense) => {
+      const converted = convertAmount(
         expense.amount,
         expense.currency
-      ),
-    0
-  );
+      );
 
+      return sum + (converted ?? 0);
+    }, 0);
+  }, [expenses, convertAmount]);
+
+  // BALANCE AND SAVINGS RATE
   const balance = totalIncome - totalExpense;
 
   const savingsRate =
@@ -99,19 +104,32 @@ export default function Analytics() {
       ? (balance / totalIncome) * 100
       : 0;
 
+  // DETECT UNAVAILABLE EXCHANGE RATES
+  const unavailableRateCount = useMemo(() => {
+    return [...incomes, ...expenses].filter(
+      (transaction) => !hasRate(transaction.currency)
+    ).length;
+  }, [incomes, expenses, hasRate]);
+
+  // FORMAT AMOUNT
+  const formatMoney = (amount) => {
+    return `${baseCurrency} ${Number(amount).toLocaleString(
+      "en-US",
+      {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      }
+    )}`;
+  };
+
   return (
     <div style={page}>
-
       {/* HEADER */}
       <div style={header}>
         <div>
-          <p style={eyebrow}>
-            FINANCIAL ANALYTICS
-          </p>
+          <p style={eyebrow}>FINANCIAL ANALYTICS</p>
 
-          <h1 style={title}>
-            Analytics
-          </h1>
+          <h1 style={title}>Analytics</h1>
 
           <p style={subtitle}>
             Understand your income, expenses and
@@ -120,58 +138,62 @@ export default function Analytics() {
         </div>
       </div>
 
+      {/* ERROR */}
+      {error && (
+        <div style={errorCard}>
+          {error}
+        </div>
+      )}
+
+      {/* EXCHANGE RATE WARNING */}
+      {!loading && unavailableRateCount > 0 && (
+        <div style={warningCard}>
+          <strong>
+            Some exchange rates are unavailable.
+          </strong>
+
+          <p style={{ margin: "6px 0 0" }}>
+            {unavailableRateCount} transaction(s)
+            could not be converted to {baseCurrency}.
+            The totals and charts below are incomplete.
+          </p>
+        </div>
+      )}
+
       {/* SUMMARY */}
       <div style={summaryGrid}>
-
         <SummaryCard
           label="Total Income"
-          value={totalIncome}
-          currency={baseCurrency}
+          value={formatMoney(totalIncome)}
           loading={loading}
           icon="↗"
         />
 
         <SummaryCard
           label="Total Expense"
-          value={totalExpense}
-          currency={baseCurrency}
+          value={formatMoney(totalExpense)}
           loading={loading}
           icon="↘"
         />
 
         <SummaryCard
           label="Balance"
-          value={balance}
-          currency={baseCurrency}
+          value={formatMoney(balance)}
           loading={loading}
           icon="◈"
         />
 
-        <div style={summaryCard}>
-          <div style={summaryTop}>
-            <span>Savings Rate</span>
-
-            <div style={iconStyle}>
-              %
-            </div>
-          </div>
-
-          <h2 style={valueStyle}>
-            {loading
-              ? "Loading..."
-              : `${savingsRate.toFixed(1)}%`}
-          </h2>
-
-          <p style={description}>
-            Based on total income
-          </p>
-        </div>
-
+        <SummaryCard
+          label="Savings Rate"
+          value={`${savingsRate.toFixed(1)}%`}
+          loading={loading}
+          icon="%"
+          description="Based on total income"
+        />
       </div>
 
       {/* CHART AREA */}
       <div style={chartGrid}>
-
         <div style={chartCard}>
           <h3 style={chartTitle}>
             Income vs Expense
@@ -203,12 +225,10 @@ export default function Analytics() {
             convertToBase={convertToBase}
           />
         </div>
-
       </div>
 
-      {/* MONTHLY TREND */}
+      {/* MONTHLY FINANCIAL TREND */}
       <div style={largeChartCard}>
-
         <h3 style={chartTitle}>
           Monthly Financial Trend
         </h3>
@@ -217,58 +237,59 @@ export default function Analytics() {
           Track your financial activity over time
         </p>
 
-          <MonthlyFinancialTrend
-    incomes={incomes}
-    expenses={expenses}
-    baseCurrency={baseCurrency}
-    convertToBase={convertToBase}
-  />
-
+        <MonthlyFinancialTrend
+          incomes={incomes}
+          expenses={expenses}
+          baseCurrency={baseCurrency}
+          convertToBase={convertToBase}
+        />
       </div>
 
+      {/* FINANCIAL INSIGHTS */}
       <div style={insightsSection}>
-  <div style={insightsHeader}>
-    <div>
-      <h3 style={chartTitle}>Financial Insights</h3>
-      <p style={chartSubtitle}>
-        Understand your spending patterns and financial performance
-      </p>
-    </div>
+        <div style={insightsHeader}>
+          <div>
+            <h3 style={chartTitle}>
+              Financial Insights
+            </h3>
 
-    <div style={insightsBadge}>
-      ● Live analysis
-    </div>
-  </div>
+            <p style={chartSubtitle}>
+              Understand your spending patterns and
+              financial performance
+            </p>
+          </div>
 
-  <FinancialInsights
-    incomes={incomes}
-    expenses={expenses}
-    totalIncome={totalIncome}
-    totalExpense={totalExpense}
-    balance={balance}
-    savingsRate={savingsRate}
-    baseCurrency={baseCurrency}
-    convertToBase={convertToBase}
-  />
-</div>
+          <div style={insightsBadge}>
+            ● Current records
+          </div>
+        </div>
 
+        <FinancialInsights
+          incomes={incomes}
+          expenses={expenses}
+          totalIncome={totalIncome}
+          totalExpense={totalExpense}
+          balance={balance}
+          savingsRate={savingsRate}
+          baseCurrency={baseCurrency}
+          convertToBase={convertToBase}
+        />
+      </div>
     </div>
   );
 }
-
 
 /* ================= SUMMARY CARD ================= */
 
 function SummaryCard({
   label,
   value,
-  currency,
   loading,
   icon,
+  description = "Based on current records",
 }) {
   return (
     <div style={summaryCard}>
-
       <div style={summaryTop}>
         <span>{label}</span>
 
@@ -278,26 +299,17 @@ function SummaryCard({
       </div>
 
       <h2 style={valueStyle}>
-        {loading
-          ? "Loading..."
-          : `${currency} ${Number(value).toLocaleString(
-              undefined,
-              {
-                maximumFractionDigits: 2,
-              }
-            )}`}
+        {loading ? "Loading..." : value}
       </h2>
 
-      <p style={description}>
-        Based on current records
+      <p style={summaryDescription}>
+        {description}
       </p>
-
     </div>
   );
 }
 
-
-/* ================= PAGE STYLE ================= */
+/* ================= PAGE STYLES ================= */
 
 const page = {
   padding: "32px 36px",
@@ -331,23 +343,19 @@ const subtitle = {
   fontSize: 14,
 };
 
-
-/* ================= SUMMARY ================= */
-
 const summaryGrid = {
   display: "grid",
-  gridTemplateColumns:
-    "repeat(4, minmax(0, 1fr))",
+  gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
   gap: 18,
   marginBottom: 24,
 };
 
 const summaryCard = {
   background: "#101814",
-  border:
-    "1px solid rgba(255,255,255,0.06)",
+  border: "1px solid rgba(255,255,255,0.06)",
   borderRadius: 16,
   padding: 22,
+  minWidth: 0,
 };
 
 const summaryTop = {
@@ -362,8 +370,7 @@ const iconStyle = {
   width: 30,
   height: 30,
   borderRadius: 8,
-  background:
-    "rgba(74,222,128,0.1)",
+  background: "rgba(74,222,128,0.1)",
   color: "#4ade80",
   display: "flex",
   alignItems: "center",
@@ -374,16 +381,14 @@ const valueStyle = {
   fontSize: 25,
   margin: "18px 0 8px",
   color: "#f9fafb",
+  overflowWrap: "anywhere",
 };
 
-const description = {
+const summaryDescription = {
   fontSize: 11,
   color: "rgba(255,255,255,0.3)",
   margin: 0,
 };
-
-
-/* ================= CHARTS ================= */
 
 const chartGrid = {
   display: "grid",
@@ -395,10 +400,10 @@ const chartGrid = {
 
 const chartCard = {
   background: "#101814",
-  border:
-    "1px solid rgba(255,255,255,0.06)",
+  border: "1px solid rgba(255,255,255,0.06)",
   borderRadius: 16,
   padding: 22,
+  minWidth: 0,
 };
 
 const chartTitle = {
@@ -408,35 +413,17 @@ const chartTitle = {
 };
 
 const chartSubtitle = {
-  margin: "5px 0 0",
+  margin: "5px 0 16px",
   fontSize: 11,
   color: "rgba(255,255,255,0.3)",
 };
 
-const chartPlaceholder = {
-  height: 300,
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  color: "rgba(255,255,255,0.2)",
-  fontSize: 13,
-};
-
 const largeChartCard = {
   background: "#101814",
-  border:
-    "1px solid rgba(255,255,255,0.06)",
+  border: "1px solid rgba(255,255,255,0.06)",
   borderRadius: 16,
   padding: 22,
-};
-
-const largeChartPlaceholder = {
-  height: 320,
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  color: "rgba(255,255,255,0.2)",
-  fontSize: 13,
+  marginBottom: 22,
 };
 
 const insightsSection = {
@@ -444,7 +431,6 @@ const insightsSection = {
   border: "1px solid rgba(255,255,255,0.06)",
   borderRadius: 16,
   padding: 22,
-  marginTop: 22,
 };
 
 const insightsHeader = {
@@ -452,6 +438,7 @@ const insightsHeader = {
   justifyContent: "space-between",
   alignItems: "flex-start",
   gap: 20,
+  marginBottom: 20,
 };
 
 const insightsBadge = {
@@ -463,4 +450,24 @@ const insightsBadge = {
   fontSize: 10,
   fontWeight: 600,
   whiteSpace: "nowrap",
+};
+
+const warningCard = {
+  padding: "14px 18px",
+  marginBottom: 22,
+  borderRadius: 12,
+  background: "rgba(245,158,11,0.08)",
+  border: "1px solid rgba(245,158,11,0.25)",
+  color: "#fbbf24",
+  fontSize: 13,
+};
+
+const errorCard = {
+  padding: "14px 18px",
+  marginBottom: 22,
+  borderRadius: 12,
+  background: "rgba(239,68,68,0.08)",
+  border: "1px solid rgba(239,68,68,0.25)",
+  color: "#fca5a5",
+  fontSize: 13,
 };

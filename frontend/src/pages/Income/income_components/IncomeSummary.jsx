@@ -1,98 +1,64 @@
+
 export default function IncomeSummary({
-  total,
+  total = 0,
   incomeCount = 0,
   currency = "LKR",
+  loading = false,
 }) {
+  const average =
+    incomeCount > 0 ? Number(total) / incomeCount : 0;
+
+  const formatMoney = (amount) =>
+    `${currency} ${Number(amount).toLocaleString(
+      undefined,
+      {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      }
+    )}`;
+
+  const cards = [
+    {
+      label: "Total Income",
+      value: loading ? "Calculating..." : formatMoney(total),
+      description: "Based on filtered transactions",
+      icon: "↗",
+    },
+    {
+      label: "Transactions",
+      value: incomeCount.toString(),
+      description: "Recorded income entries",
+      icon: "▤",
+    },
+    {
+      label: "Average Income",
+      value: loading ? "Calculating..." : formatMoney(average),
+      description: "Per income transaction",
+      icon: "◈",
+    },
+  ];
+
   return (
-    <div style={summaryGrid}>
+    <div className="gt-income-summary-grid">
+      {cards.map((card) => (
+        <article
+          key={card.label}
+          className="gt-income-stat-card"
+        >
+          <div className="gt-income-stat-top">
+            <span>{card.label}</span>
+            <span className="gt-income-stat-icon">
+              {card.icon}
+            </span>
+          </div>
 
-      <div style={summaryCard}>
-        <div style={summaryTop}>
-          <span>Total Income</span>
-          <div style={icon}>↗</div>
-        </div>
+          <h2 className="gt-income-stat-value">
+            {card.value}
+          </h2>
 
-        <h2 style={value}>
-          {currency} {Number(total).toLocaleString()}
-        </h2>
-
-        <p style={description}>
-          Based on current filtered records
-        </p>
-      </div>
-
-      <div style={summaryCard}>
-        <div style={summaryTop}>
-          <span>Income Entries</span>
-          <div style={icon}>▤</div>
-        </div>
-
-        <h2 style={value}>{incomeCount}</h2>
-
-        <p style={description}>
-          Recorded income transactions
-        </p>
-      </div>
-
-      <div style={summaryCard}>
-        <div style={summaryTop}>
-          <span>Financial Progress</span>
-          <div style={icon}>✦</div>
-        </div>
-
-        <h2 style={value}>Growing</h2>
-
-        <p style={description}>
-          Keep tracking your earnings
-        </p>
-      </div>
-
+          <p>{card.description}</p>
+        </article>
+      ))}
     </div>
   );
 }
-
-const summaryGrid = {
-  display: "grid",
-  gridTemplateColumns: "repeat(3, 1fr)",
-  gap: 18,
-  marginBottom: 24,
-};
-
-const summaryCard = {
-  background: "#101814",
-  border: "1px solid rgba(255,255,255,0.06)",
-  borderRadius: 16,
-  padding: 22,
-};
-
-const summaryTop = {
-  display: "flex",
-  justifyContent: "space-between",
-  alignItems: "center",
-  color: "rgba(255,255,255,0.4)",
-  fontSize: 12,
-};
-
-const icon = {
-  width: 30,
-  height: 30,
-  borderRadius: 8,
-  background: "rgba(74,222,128,0.1)",
-  color: "#4ade80",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-};
-
-const value = {
-  fontSize: 25,
-  margin: "18px 0 8px",
-  color: "#f9fafb",
-};
-
-const description = {
-  fontSize: 11,
-  color: "rgba(255,255,255,0.3)",
-  margin: 0,
-};
-

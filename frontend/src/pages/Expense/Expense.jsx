@@ -1,3 +1,4 @@
+
 import { useEffect, useMemo, useState } from "react";
 
 import ExpenseForm from "./expense_components/ExpenseForm";
@@ -9,37 +10,53 @@ import ExpenseSummary from "./expense_components/ExpenseSummary";
 import { useCurrency } from "../../context/CurrencyContext";
 import { expenseAPI } from "../../api/expense";
 
+import "./Expense.css";
+
+const emptyFilters = {
+  category: "",
+  currency: "",
+  from: "",
+  to: "",
+};
+
 export default function Expense() {
+  const [expenses, setExpenses] = useState([]);
+  const [fetching, setFetching] = useState(true);
+  const [fetchError, setFetchError] = useState("");
+
   const [showModal, setShowModal] = useState(false);
   const [editData, setEditData] = useState(null);
-  const [expenses, setExpenses] = useState([]);
 
-  // Global currency system
+  const [filters, setFilters] = useState(emptyFilters);
+  const [showFilters, setShowFilters] = useState(false);
+
   const {
     currency: baseCurrency,
-    rates,
     loading: profileLoading,
     ratesLoading,
-    convertAmount: convertToBase,
+    convertAmount,
     hasRate,
   } = useCurrency();
 
   const currencyLoading = profileLoading || ratesLoading;
 
-  const [filters, setFilters] = useState({
-    category: "",
-    currency: "",
-    from: "",
-    to: "",
-  });
-
-  // Fetch expenses
   const fetchExpenses = async () => {
     try {
+      setFetchError("");
+
       const res = await expenseAPI.getAll();
-      setExpenses(res.data.data || []);
+      const payload = res.data?.data ?? res.data;
+
+      const records = Array.isArray(payload)
+        ? payload
+        : payload?.expenses ?? [];
+
+      setExpenses(records);
     } catch (err) {
       console.error("Failed to fetch expenses:", err);
+      setFetchError("Unable to load expense records.");
+    } finally {
+      setFetching(false);
     }
   };
 
@@ -47,7 +64,6 @@ export default function Expense() {
     fetchExpenses();
   }, []);
 
-  // Filter expenses
   const filteredExpenses = useMemo(() => {
     return expenses.filter((expense) => {
       const categoryMatch = (expense.category || "")
@@ -56,17 +72,14 @@ export default function Expense() {
 
       const currencyMatch =
         !filters.currency ||
-        expense.currency === filters.currency;
+        (expense.currency || baseCurrency) === filters.currency;
 
-      const expenseDate = expense.date
+      const date = expense.date
         ? String(expense.date).slice(0, 10)
         : "";
 
-      const fromMatch =
-        !filters.from || expenseDate >= filters.from;
-
-      const toMatch =
-        !filters.to || expenseDate <= filters.to;
+      const fromMatch = !filters.from || date >= filters.from;
+      const toMatch = !filters.to || date <= filters.to;
 
       return (
         categoryMatch &&
@@ -75,28 +88,32 @@ export default function Expense() {
         toMatch
       );
     });
-  }, [expenses, filters]);
+  }, [expenses, filters, baseCurrency]);
 
-  // Calculate total in preferred currency
   const totalExpense = useMemo(() => {
     return filteredExpenses.reduce((sum, expense) => {
-      const convertedAmount = convertToBase(
+      const converted = convertAmount(
         expense.amount,
-        expense.currency
+        expense.currency || baseCurrency
       );
 
-      return sum + (convertedAmount ?? 0);
+      const numeric = Number(converted);
+
+      if (converted == null || !Number.isFinite(numeric)) {
+        return sum;
+      }
+
+      return sum + numeric;
     }, 0);
-  }, [filteredExpenses, convertToBase]);
+  }, [filteredExpenses, convertAmount, baseCurrency]);
 
-  const roundedTotal = Math.round(totalExpense * 100) / 100;
-
-  // Count transactions with unavailable conversion rates
   const unavailableRateCount = useMemo(() => {
     return filteredExpenses.filter(
-      (expense) => !hasRate(expense.currency)
+      (expense) => !hasRate(expense.currency || baseCurrency)
     ).length;
-  }, [filteredExpenses, hasRate]);
+  }, [filteredExpenses, hasRate, baseCurrency]);
+
+  const activeFilterCount = Object.values(filters).filter(Boolean).length;
 
   const handleEdit = (expense) => {
     setEditData(expense);
@@ -106,259 +123,170 @@ export default function Expense() {
   const handleClose = () => {
     setShowModal(false);
     setEditData(null);
-    fetchExpenses();
   };
 
-  const handleClearFilters = () => {
-    setFilters({
-      category: "",
-      currency: "",
-      from: "",
-      to: "",
-    });
+  const handleSaved = async () => {
+    handleClose();
+    await fetchExpenses();
+  };
+
+  const handleDeleted = (id) => {
+    setExpenses((previous) =>
+      previous.filter((expense) => expense._id !== id)
+    );
   };
 
   return (
-    <div style={page}>
+    <main className="gt-expense-page">
       {/* HEADER */}
-      <div style={header}>
+      <header className="gt-expense-header">
         <div>
-          <p style={eyebrow}>FINANCIAL OVERVIEW</p>
+          <p className="gt-expense-eyebrow">
+            YOUR FINANCES / EXPENSE
+          </p>
 
-          <h1 style={title}>Expense</h1>
+          <h1>Expense</h1>
 
-          <p style={subtitle}>
+          <p className="gt-expense-subtitle">
             Track your spending and understand where your money goes.
           </p>
         </div>
 
         <button
           type="button"
-          style={addBtn}
+          className="gt-expense-primary-btn"
           onClick={() => {
             setEditData(null);
             setShowModal(true);
           }}
         >
-          <span style={{ fontSize: 20 }}>+</span>
+          <span aria-hidden="true">+</span>
           Add Expense
         </button>
-      </div>
+      </header>
+
+      {/* ERROR */}
+      {fetchError && (
+        <div className="gt-expense-error" role="alert">
+          {fetchError}
+          <button type="button" onClick={fetchExpenses}>
+            Retry
+          </button>
+        </div>
+      )}
 
       {/* SUMMARY */}
       <ExpenseSummary
-        total={roundedTotal}
+        total={totalExpense}
         expenseCount={filteredExpenses.length}
         currency={baseCurrency}
-        loading={currencyLoading}
+        loading={currencyLoading || fetching}
       />
 
       {/* EXCHANGE RATE WARNING */}
       {!currencyLoading && unavailableRateCount > 0 && (
-        <div style={warningCard}>
-          <span style={{ fontSize: 18 }}>⚠</span>
-
+        <div className="gt-expense-warning" role="status">
+          <span aria-hidden="true">!</span>
           <div>
-            <strong>Some exchange rates are unavailable</strong>
-
-            <p style={warningText}>
-              {unavailableRateCount} expense
+            <strong>Exchange rates unavailable</strong>
+            <p>
+              {unavailableRateCount} expense{" "}
               {unavailableRateCount === 1
-                ? " record cannot"
-                : " records cannot"}{" "}
+                ? "record cannot"
+                : "records cannot"}{" "}
               currently be converted to {baseCurrency}.
-              The total shown is incomplete.
+              Your total may be incomplete.
             </p>
           </div>
         </div>
       )}
 
-      {/* FILTERS */}
-      <div style={filterCard}>
-        <div style={filterHeader}>
-          <div>
-            <h3 style={filterTitle}>Expense Records</h3>
+      {/* TWO-COLUMN LAYOUT */}
+      <div className="gt-expense-main-grid">
+        {/* TRANSACTIONS */}
+        <section className="gt-expense-panel">
+          <div className="gt-expense-section-heading">
+            <div>
+              <h2>Transactions</h2>
+              <p>
+                {filteredExpenses.length} expense{" "}
+                {filteredExpenses.length === 1
+                  ? "transaction"
+                  : "transactions"}
+              </p>
+            </div>
 
-            <p style={filterSubtitle}>
-              Filter and manage your expense transactions
-            </p>
+            <button
+              type="button"
+              className={`gt-expense-filter-toggle ${
+                showFilters ? "is-active" : ""
+              }`}
+              onClick={() => setShowFilters((previous) => !previous)}
+              aria-expanded={showFilters}
+            >
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+              >
+                <path d="M4 7h16M7 12h10M10 17h4" />
+              </svg>
+
+              Filters
+
+              {activeFilterCount > 0 && (
+                <span className="gt-expense-filter-count">
+                  {activeFilterCount}
+                </span>
+              )}
+            </button>
           </div>
 
-          <span style={recordBadge}>
-            {filteredExpenses.length} records
-          </span>
-        </div>
+          {showFilters && (
+            <div className="gt-expense-filter-drawer">
+              <ExpenseFilter
+                filters={filters}
+                setFilters={setFilters}
+                onClear={() => setFilters({ ...emptyFilters })}
+              />
+            </div>
+          )}
 
-        <ExpenseFilter
-          filters={filters}
-          setFilters={setFilters}
-          onClear={handleClearFilters}
-        />
-      </div>
+          {fetching ? (
+            <div className="gt-expense-loading">
+              Loading transactions...
+            </div>
+          ) : (
+            <ExpenseTable
+              expenses={filteredExpenses}
+              onEdit={handleEdit}
+              onDeleted={handleDeleted}
+            />
+          )}
+        </section>
 
-      {/* DASHBOARD GRID */}
-      <div style={dashboardGrid}>
-        {/* TABLE */}
-        <div style={tableCard}>
-          <ExpenseTable
-            expenses={filteredExpenses}
-            setExpenses={setExpenses}
-            onEdit={handleEdit}
-          />
-        </div>
-
-        {/* CHART */}
-        <div style={chartCard}>
+        {/* DISTRIBUTION */}
+        <section className="gt-expense-panel">
           <ExpenseChart
             expenses={filteredExpenses}
             baseCurrency={baseCurrency}
-            rates={rates}
           />
-        </div>
+        </section>
       </div>
 
-      {/* MODAL */}
+      {/* ADD / EDIT MODAL */}
       {showModal && (
         <ExpenseForm
-          onClose={handleClose}
           editData={editData}
+          onClose={handleClose}
+          onSaved={handleSaved}
+          defaultCurrency={baseCurrency}
         />
       )}
-    </div>
+    </main>
   );
 }
-
-/* ---------- STYLES ---------- */
-
-const page = {
-  padding: "32px 36px",
-  color: "#e5e7eb",
-  minHeight: "100vh",
-  background: "#080d0b",
-};
-
-const header = {
-  display: "flex",
-  justifyContent: "space-between",
-  alignItems: "center",
-  gap: 20,
-  flexWrap: "wrap",
-  marginBottom: 30,
-};
-
-const eyebrow = {
-  fontSize: 11,
-  letterSpacing: "2px",
-  color: "#4ade80",
-  fontWeight: 700,
-  marginBottom: 8,
-};
-
-const title = {
-  fontSize: 32,
-  fontWeight: 700,
-  margin: 0,
-  color: "#f9fafb",
-};
-
-const subtitle = {
-  color: "rgba(255,255,255,0.4)",
-  marginTop: 8,
-  fontSize: 14,
-  lineHeight: 1.6,
-};
-
-const addBtn = {
-  display: "flex",
-  alignItems: "center",
-  gap: 8,
-  background: "linear-gradient(135deg,#22c55e,#16a34a)",
-  border: "none",
-  padding: "12px 20px",
-  borderRadius: 10,
-  color: "#fff",
-  fontWeight: 600,
-  cursor: "pointer",
-  boxShadow: "0 8px 20px rgba(34,197,94,0.15)",
-};
-
-const warningCard = {
-  display: "flex",
-  alignItems: "flex-start",
-  gap: 12,
-  background: "rgba(245,158,11,0.08)",
-  border: "1px solid rgba(245,158,11,0.25)",
-  color: "#fbbf24",
-  borderRadius: 12,
-  padding: "14px 18px",
-  marginBottom: 22,
-  fontSize: 13,
-};
-
-const warningText = {
-  margin: "5px 0 0",
-  lineHeight: 1.6,
-  color: "#d6c5a2",
-};
-
-const filterCard = {
-  background: "#101814",
-  border: "1px solid rgba(255,255,255,0.06)",
-  borderRadius: 16,
-  padding: 22,
-  marginBottom: 22,
-};
-
-const filterHeader = {
-  display: "flex",
-  justifyContent: "space-between",
-  alignItems: "center",
-  gap: 12,
-  flexWrap: "wrap",
-  marginBottom: 20,
-};
-
-const filterTitle = {
-  margin: 0,
-  fontSize: 17,
-  color: "#fff",
-};
-
-const filterSubtitle = {
-  margin: "5px 0 0",
-  fontSize: 12,
-  color: "rgba(255,255,255,0.35)",
-};
-
-const recordBadge = {
-  background: "rgba(74,222,128,0.1)",
-  color: "#4ade80",
-  padding: "6px 10px",
-  borderRadius: 20,
-  fontSize: 12,
-  whiteSpace: "nowrap",
-};
-
-const dashboardGrid = {
-  display: "grid",
-  gridTemplateColumns: "minmax(0, 1fr) minmax(280px, 330px)",
-  gap: 22,
-  alignItems: "start",
-};
-
-const tableCard = {
-  background: "#101814",
-  border: "1px solid rgba(255,255,255,0.06)",
-  borderRadius: 16,
-  padding: 20,
-  overflow: "hidden",
-  minWidth: 0,
-};
-
-const chartCard = {
-  background: "#101814",
-  border: "1px solid rgba(255,255,255,0.06)",
-  borderRadius: 16,
-  padding: 20,
-  minWidth: 0,
-};

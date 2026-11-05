@@ -1,10 +1,12 @@
 
+import { useState } from "react";
 import { incomeAPI } from "../../../api/income";
 import { useCurrency } from "../../../context/CurrencyContext";
 
 export default function IncomeTable({
   incomes = [],
   setIncomes,
+  onDeleted,
   onEdit,
 }) {
   const {
@@ -13,18 +15,18 @@ export default function IncomeTable({
     ratesLoading,
   } = useCurrency();
 
-  const handleDelete = async (id) => {
-    try {
-      await incomeAPI.delete(id);
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [deletingId, setDeletingId] = useState(null);
+  const [deleteError, setDeleteError] = useState("");
 
-      setIncomes((prev) =>
-        prev.filter((income) => income._id !== id)
-      );
-    } catch (err) {
-      console.error("Delete failed", err);
-      alert("Failed to delete income.");
-    }
-  };
+  const formatMoney = (amount, currency) =>
+    `${currency} ${Number(amount).toLocaleString(
+      undefined,
+      {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      }
+    )}`;
 
   const displayAmount = (income) => {
     if (ratesLoading) return "Converting...";
@@ -34,181 +36,218 @@ export default function IncomeTable({
       income.currency || baseCurrency
     );
 
-    if (converted === null || !Number.isFinite(Number(converted))) {
+    if (
+      converted == null ||
+      !Number.isFinite(Number(converted))
+    ) {
       return "Rate unavailable";
     }
 
-    return `+ ${baseCurrency} ${Number(converted).toLocaleString(
-      undefined,
-      {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
+    return `+ ${formatMoney(converted, baseCurrency)}`;
+  };
+
+  const closeDeleteModal = () => {
+    if (deletingId) return;
+    setDeleteTarget(null);
+    setDeleteError("");
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteTarget || deletingId) return;
+
+    const id = deleteTarget._id;
+    setDeletingId(id);
+    setDeleteError("");
+
+    try {
+      await incomeAPI.delete(id);
+
+      if (onDeleted) {
+        onDeleted(id);
+      } else {
+        setIncomes?.((previous) =>
+          previous.filter((income) => income._id !== id)
+        );
       }
-    )}`;
+
+      setDeleteTarget(null);
+    } catch (err) {
+      console.error("Delete failed:", err);
+      setDeleteError(
+        err.response?.data?.message ||
+        "Unable to delete income. Please try again."
+      );
+    } finally {
+      setDeletingId(null);
+    }
   };
 
   return (
-    <div style={{ overflowX: "auto" }}>
-      <table style={table}>
-        <thead>
-          <tr>
-            <th style={th}>AMOUNT</th>
-            <th style={th}>SOURCE</th>
-            <th style={th}>ORIGINAL CURRENCY</th>
-            <th style={th}>DATE</th>
-            <th style={th}>ACTIONS</th>
-          </tr>
-        </thead>
+    <>
+      <div className="gt-income-transaction-list">
+        {incomes.length === 0 ? (
+          <div className="gt-income-empty">
+            <span aria-hidden="true">▤</span>
+            <strong>No income records found</strong>
+            <p>
+              Add a transaction or adjust your filters.
+            </p>
+          </div>
+        ) : (
+          incomes.map((income) => (
+            <article
+              key={income._id}
+              className="gt-income-transaction-row"
+            >
+              <div className="gt-income-transaction-main">
+                <span className="gt-income-source-icon">
+                  ↗
+                </span>
 
-        <tbody>
-          {incomes.length === 0 ? (
-            <tr>
-              <td colSpan={5} style={empty}>
-                <div style={{ fontSize: 32, marginBottom: 10 }}>
-                  📭
-                </div>
-                No income records found
-                <p style={{ fontSize: 12, opacity: 0.5 }}>
-                  Try changing your filters or add a new income.
-                </p>
-              </td>
-            </tr>
-          ) : (
-            incomes.map((income) => (
-              <tr key={income._id} style={row}>
-                <td style={td}>
-                  <span style={amount}>
-                    {displayAmount(income)}
-                  </span>
-                </td>
+                <div className="gt-income-transaction-info">
+                  <strong>
+                    {income.source || "Other"}
+                  </strong>
 
-                <td style={td}>
-                  <div style={sourceWrapper}>
-                    <div style={sourceIcon}>↗</div>
-                    <span>{income.source}</span>
-                  </div>
-                </td>
-
-                <td style={td}>
-                  <span style={currencyBadge}>
+                  <span>
+                    {income.date
+                      ? String(income.date).slice(0, 10)
+                      : "No date"}
+                    {" · "}
                     {income.currency || baseCurrency}
                   </span>
-                </td>
+                </div>
+              </div>
 
-                <td style={td}>
-                  {income.date
-                    ? new Date(income.date).toLocaleDateString()
-                    : "—"}
-                </td>
+              <div className="gt-income-transaction-right">
+                <div className="gt-income-transaction-amount">
+                  <strong>{displayAmount(income)}</strong>
 
-                <td style={td}>
-                  <div style={{ display: "flex", gap: 8 }}>
-                    <button
-                      type="button"
-                      style={editBtn}
-                      onClick={() => onEdit(income)}
-                    >
-                      Edit
-                    </button>
+                  <span>
+                    Original:{" "}
+                    {formatMoney(
+                      income.amount,
+                      income.currency || baseCurrency
+                    )}
+                  </span>
+                </div>
 
-                    <button
-                      type="button"
-                      style={deleteBtn}
-                      onClick={() => handleDelete(income._id)}
-                    >
-                      Delete
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))
-          )}
-        </tbody>
-      </table>
-    </div>
+                <div className="gt-income-actions">
+                  <button
+                    type="button"
+                    className="gt-income-edit-btn"
+                    onClick={() => onEdit(income)}
+                  >
+                    Edit
+                  </button>
+
+                  <button
+                    type="button"
+                    className="gt-income-delete-btn"
+                    onClick={() => {
+                      setDeleteTarget(income);
+                      setDeleteError("");
+                    }}
+                  >
+                    Delete
+                  </button>
+                </div>
+              </div>
+            </article>
+          ))
+        )}
+      </div>
+
+      {deleteTarget && (
+        <div
+          className="gt-income-delete-overlay"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) {
+              closeDeleteModal();
+            }
+          }}
+        >
+          <div
+            className="gt-income-delete-modal"
+            role="alertdialog"
+            aria-modal="true"
+            aria-labelledby="gt-delete-title"
+            aria-describedby="gt-delete-description"
+          >
+            <div className="gt-income-delete-icon">
+              <svg
+                width="24"
+                height="24"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M3 6h18" />
+                <path d="M8 6V4h8v2" />
+                <path d="M19 6l-1 14H6L5 6" />
+                <path d="M10 10v6M14 10v6" />
+              </svg>
+            </div>
+
+            <h2 id="gt-delete-title">
+              Delete income?
+            </h2>
+
+            <p id="gt-delete-description">
+              Are you sure you want to delete this
+              income transaction? This action cannot
+              be undone.
+            </p>
+
+            <div className="gt-income-delete-details">
+              <span>
+                {deleteTarget.source || "Other"}
+              </span>
+
+              <strong>
+                {formatMoney(
+                  deleteTarget.amount,
+                  deleteTarget.currency || baseCurrency
+                )}
+              </strong>
+            </div>
+
+            {deleteError && (
+              <p
+                className="gt-income-delete-error"
+                role="alert"
+              >
+                {deleteError}
+              </p>
+            )}
+
+            <div className="gt-income-delete-footer">
+              <button
+                type="button"
+                className="gt-income-cancel-btn"
+                onClick={closeDeleteModal}
+                disabled={Boolean(deletingId)}
+              >
+                Cancel
+              </button>
+
+              <button
+                type="button"
+                className="gt-income-confirm-delete-btn"
+                onClick={confirmDelete}
+                disabled={Boolean(deletingId)}
+              >
+                {deletingId
+                  ? "Deleting..."
+                  : "Delete Income"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
-
-const table = {
-  width: "100%",
-  borderCollapse: "collapse",
-  fontSize: 13,
-};
-
-const th = {
-  textAlign: "left",
-  padding: "14px 12px",
-  fontSize: 10,
-  letterSpacing: "1px",
-  color: "rgba(255,255,255,0.3)",
-  borderBottom: "1px solid rgba(255,255,255,0.06)",
-  whiteSpace: "nowrap",
-};
-
-const td = {
-  padding: "16px 12px",
-  borderBottom: "1px solid rgba(255,255,255,0.04)",
-  color: "rgba(255,255,255,0.65)",
-  whiteSpace: "nowrap",
-};
-
-const row = {
-  transition: "background 0.2s",
-};
-
-const amount = {
-  color: "#4ade80",
-  fontWeight: 700,
-  whiteSpace: "nowrap",
-};
-
-const sourceWrapper = {
-  display: "flex",
-  alignItems: "center",
-  gap: 10,
-  color: "#e5e7eb",
-};
-
-const sourceIcon = {
-  width: 28,
-  height: 28,
-  borderRadius: 8,
-  background: "rgba(74,222,128,0.1)",
-  color: "#4ade80",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-};
-
-const currencyBadge = {
-  padding: "5px 8px",
-  borderRadius: 6,
-  background: "rgba(255,255,255,0.05)",
-  fontSize: 11,
-};
-
-const editBtn = {
-  background: "rgba(255,255,255,0.06)",
-  border: "none",
-  color: "#d1d5db",
-  padding: "6px 10px",
-  borderRadius: 6,
-  cursor: "pointer",
-  fontSize: 11,
-};
-
-const deleteBtn = {
-  background: "rgba(248,113,113,0.08)",
-  border: "none",
-  color: "#f87171",
-  padding: "6px 10px",
-  borderRadius: 6,
-  cursor: "pointer",
-  fontSize: 11,
-};
-
-const empty = {
-  textAlign: "center",
-  padding: 50,
-  color: "rgba(255,255,255,0.35)",
-};

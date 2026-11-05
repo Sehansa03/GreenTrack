@@ -1,0 +1,646 @@
+
+/* ============================================
+   GREENTRACK - APP LAYOUT
+   Professional Dark Theme
+   ============================================ */
+
+/* Shared layout */
+
+.gt-public-layout {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: #0c1110;
+}
+
+.gt-public-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.gt-app-layout {
+  display: flex;
+  min-height: 100vh;
+  background: #0c1110;
+  color: #f2f5f3;
+  font-family: "DM Sans", "Segoe UI", sans-serif;
+}
+
+.gt-app-content {
+  flex: 1;
+  min-width: 0;
+  min-height: 100vh;
+  background: #0c1110;
+}
+
+.gt-page-content {
+  min-width: 0;
+}
+
+/* ============================================
+   SIDEBAR STRUCTURE
+   Colors are handled by Sidebar.css
+   ============================================ */
+
+.gt-sidebar {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+
+  display: flex;
+  flex-direction: column;
+
+  width: 232px;
+  height: 100vh;
+  flex-shrink: 0;
+
+  overflow: hidden;
+
+  background: #101613;
+  border-right: 1px solid #28342d;
+
+  transition:
+    width 0.25s ease,
+    transform 0.25s ease;
+}
+
+.gt-sidebar-collapsed {
+  width: 76px;
+}
+
+/* Sidebar header */
+
+.gt-sidebar-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+
+  min-height: 72px;
+  padding: 0 15px;
+  flex-shrink: 0;
+
+  border-bottom: 1px solid #28342d;
+}
+
+.gt-sidebar-brand {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  min-width: 0;
+
+  color: #f2f5f3;
+  text-decoration: none;
+}
+
+.gt-brand-mark {
+  display: grid;
+  place-items: center;
+
+  width: 38px;
+  height: 38px;
+  flex-shrink: 0;
+
+  border-radius: 11px;
+  background: #258457;
+}
+
+.gt-sidebar-brand-text {
+  color: #f2f5f3;
+  font-size: 19px;
+  font-weight: 800;
+  letter-spacing: -0.6px;
+  white-space: nowrap;
+}
+
+.gt-sidebar-brand-text span {
+  color: #8bd4ab;
+}
+
+/* Sidebar controls */
+
+.gt-sidebar-toggle,
+.gt-sidebar-close {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+
+  width: 30px;
+  height: 30px;
+
+  padding: 0;
+  border: 1px solid #28342d;
+  border-radius: 9px;
+
+  background: transparent;
+  color: #93a29a;
+  cursor: pointer;
+}
+
+.gt-sidebar-toggle:hover,
+.gt-sidebar-close:hover {
+  background: #242f29;
+  color: #f2f5f3;
+}
+
+.gt-sidebar-close {
+  display: none;
+}
+
+/* Sidebar scroll area */
+
+.gt-sidebar-scroll {
+  flex: 1;
+  min-height: 0;
+
+  overflow-y: auto;
+  overflow-x: hidden;
+
+  padding: 23px 11px;
+
+  scrollbar-width: thin;
+  scrollbar-color: #34443b transparent;
+}
+
+.gt-sidebar-section-label {
+  margin: 0 0 12px;
+  padding: 0 12px;
+
+  color: #71877a;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1.4px;
+}
+
+/* Navigation layout */
+
+.gt-sidebar-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.gt-nav-link {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+
+  min-height: 46px;
+  padding: 10px 13px;
+
+  border: 1px solid transparent;
+  border-radius: 11px;
+
+  color: #93a29a;
+  background: transparent;
+  text-decoration: none;
+}
+
+.gt-nav-icon {
+  display: grid;
+  place-items: center;
+
+  width: 25px;
+  flex-shrink: 0;
+}
+
+.gt-nav-text {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  min-width: 0;
+}
+
+.gt-nav-text strong {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.gt-nav-active-dot {
+  width: 6px;
+  height: 6px;
+  flex-shrink: 0;
+  margin-left: auto;
+
+  border-radius: 50%;
+  background: #35b978;
+}
+
+/* Sidebar bottom */
+
+.gt-sidebar-bottom {
+  flex-shrink: 0;
+  padding: 12px 10px;
+  border-top: 1px solid #28342d;
+}
+
+.gt-profile-button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+
+  width: 100%;
+  padding: 9px;
+
+  border: 1px solid #28342d;
+  border-radius: 11px;
+
+  background: #171e1b;
+  text-align: left;
+  cursor: pointer;
+}
+
+.gt-profile-avatar {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+
+  width: 37px;
+  height: 37px;
+
+  border-radius: 10px;
+  background: #284c36;
+  color: #b5efcb;
+
+  font-size: 12px;
+  font-weight: 750;
+}
+
+.gt-profile-info {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex: 1;
+  min-width: 0;
+}
+
+.gt-profile-info strong,
+.gt-profile-info small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.gt-profile-info strong {
+  color: #f2f5f3;
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.gt-profile-info small {
+  color: #93a29a;
+  font-size: 10px;
+}
+
+.gt-profile-arrow {
+  color: #93a29a;
+  font-size: 22px;
+}
+
+.gt-logout-button {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+
+  width: 100%;
+  margin-top: 9px;
+  padding: 11px 13px;
+
+  border: 1px solid transparent;
+  border-radius: 10px;
+
+  background: transparent;
+  color: #93a29a;
+
+  font-size: 12px;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+
+/* ============================================
+   COLLAPSED DESKTOP SIDEBAR
+   ============================================ */
+
+.gt-sidebar-collapsed .gt-sidebar-top {
+  min-height: 92px;
+  padding: 10px 8px;
+
+  flex-direction: column;
+  justify-content: center;
+  gap: 5px;
+}
+
+.gt-sidebar-collapsed .gt-sidebar-brand-text,
+.gt-sidebar-collapsed .gt-sidebar-section-label,
+.gt-sidebar-collapsed .gt-nav-text,
+.gt-sidebar-collapsed .gt-nav-active-dot,
+.gt-sidebar-collapsed .gt-profile-info,
+.gt-sidebar-collapsed .gt-profile-arrow,
+.gt-sidebar-collapsed .gt-logout-text {
+  display: none;
+}
+
+.gt-sidebar-collapsed .gt-sidebar-toggle svg {
+  transform: rotate(180deg);
+}
+
+.gt-sidebar-collapsed .gt-sidebar-scroll {
+  padding-left: 8px;
+  padding-right: 8px;
+}
+
+.gt-sidebar-collapsed .gt-sidebar-bottom {
+  padding-left: 8px;
+  padding-right: 8px;
+}
+
+.gt-sidebar-collapsed .gt-nav-link,
+.gt-sidebar-collapsed .gt-profile-button,
+.gt-sidebar-collapsed .gt-logout-button {
+  justify-content: center;
+  padding-left: 0;
+  padding-right: 0;
+}
+
+/* ============================================
+   MOBILE HEADER AND BACKDROP
+   ============================================ */
+
+.gt-mobile-header,
+.gt-sidebar-backdrop {
+  display: none;
+}
+
+/* ============================================
+   NOT FOUND PAGE
+   ============================================ */
+
+.gt-not-found {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+
+  min-height: 70vh;
+  padding: 40px 24px;
+
+  color: #f2f5f3;
+  text-align: center;
+}
+
+.gt-not-found-icon {
+  font-size: 60px;
+}
+
+.gt-not-found h1 {
+  margin: 15px 0 8px;
+
+  color: #f2f5f3;
+  font-size: clamp(30px, 5vw, 45px);
+  font-weight: 800;
+}
+
+.gt-not-found p {
+  margin: 0 0 28px;
+
+  color: #93a29a;
+  font-size: 14px;
+}
+
+.gt-primary-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  padding: 12px 24px;
+
+  border: 1px solid #258457;
+  border-radius: 11px;
+
+  background: #258457;
+  color: #ffffff;
+
+  font-weight: 700;
+  text-decoration: none;
+  transition: background 0.2s ease;
+}
+
+.gt-primary-button:hover {
+  background: #2c9965;
+}
+
+/* ============================================
+   MOBILE RESPONSIVE
+   ============================================ */
+
+@media (max-width: 900px) {
+  .gt-sidebar,
+  .gt-sidebar.gt-sidebar-collapsed {
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 110;
+
+    width: 252px;
+    max-width: 86vw;
+    height: 100dvh;
+
+    transform: translateX(-100%);
+    box-shadow: 20px 0 60px rgba(0, 0, 0, 0.35);
+  }
+
+  .gt-sidebar.gt-sidebar-mobile-open {
+    transform: translateX(0);
+  }
+
+  .gt-sidebar-collapsed .gt-sidebar-top {
+    min-height: 72px;
+    padding: 0 15px;
+
+    flex-direction: row;
+    justify-content: space-between;
+  }
+
+  .gt-sidebar-collapsed .gt-sidebar-brand-text,
+  .gt-sidebar-collapsed .gt-sidebar-section-label,
+  .gt-sidebar-collapsed .gt-nav-text,
+  .gt-sidebar-collapsed .gt-nav-active-dot,
+  .gt-sidebar-collapsed .gt-profile-info,
+  .gt-sidebar-collapsed .gt-profile-arrow,
+  .gt-sidebar-collapsed .gt-logout-text {
+    display: initial;
+  }
+
+  .gt-sidebar-collapsed .gt-nav-text,
+  .gt-sidebar-collapsed .gt-profile-info {
+    display: flex;
+  }
+
+  .gt-sidebar-collapsed .gt-sidebar-scroll {
+    padding: 23px 11px;
+  }
+
+  .gt-sidebar-collapsed .gt-sidebar-bottom {
+    padding: 12px 10px;
+  }
+
+  .gt-sidebar-collapsed .gt-nav-link,
+  .gt-sidebar-collapsed .gt-profile-button,
+  .gt-sidebar-collapsed .gt-logout-button {
+    justify-content: flex-start;
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+
+  .gt-sidebar-toggle {
+    display: none !important;
+  }
+
+  .gt-sidebar-close {
+    display: grid;
+  }
+
+  /* Overlay behind mobile sidebar */
+
+  .gt-sidebar-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+
+    border: 0;
+    background: rgba(0, 0, 0, 0.72);
+    cursor: pointer;
+  }
+
+  /* Mobile top navigation */
+
+  .gt-mobile-header {
+    position: sticky;
+    top: 0;
+    z-index: 40;
+
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+
+    height: 67px;
+    padding: 0 18px;
+
+    background: #101613;
+    border-bottom: 1px solid #28342d;
+  }
+
+  .gt-mobile-menu-button {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 5px;
+
+    width: 36px;
+    height: 36px;
+    padding: 9px;
+
+    border: 1px solid #34443b;
+    border-radius: 10px;
+
+    background: #202925;
+    cursor: pointer;
+  }
+
+  .gt-mobile-menu-button span {
+    width: 100%;
+    height: 2px;
+
+    border-radius: 2px;
+    background: #f2f5f3;
+  }
+
+  .gt-mobile-brand {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+
+    color: #f2f5f3;
+    font-size: 16px;
+    font-weight: 800;
+    text-decoration: none;
+  }
+
+  .gt-mobile-brand > span:last-child {
+    color: #8bd4ab;
+  }
+
+  .gt-mobile-brand-icon {
+    display: grid;
+    place-items: center;
+
+    width: 32px;
+    height: 32px;
+
+    border-radius: 9px;
+    background: #258457;
+    color: white;
+    font-size: 16px;
+  }
+
+  .gt-mobile-add-button {
+    display: grid;
+    place-items: center;
+
+    width: 35px;
+    height: 35px;
+
+    border-radius: 10px;
+    background: #258457;
+    color: #ffffff;
+
+    font-size: 24px;
+    font-weight: 500;
+    text-decoration: none;
+  }
+
+  .gt-mobile-add-button:hover {
+    background: #2c9965;
+  }
+}
+
+/* ============================================
+   SMALL MOBILE SCREENS
+   ============================================ */
+
+@media (max-width: 480px) {
+  .gt-mobile-header {
+    padding: 0 14px;
+  }
+
+  .gt-mobile-brand {
+    font-size: 15px;
+  }
+
+  .gt-sidebar,
+  .gt-sidebar.gt-sidebar-collapsed {
+    max-width: 88vw;
+  }
+}
+
+/* ============================================
+   ACCESSIBILITY
+   ============================================ */
+
+.gt-mobile-header button:focus-visible,
+.gt-mobile-header a:focus-visible,
+.gt-not-found a:focus-visible {
+  outline: 2px solid #35b978;
+  outline-offset: 3px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gt-sidebar,
+  .gt-primary-button {
+    transition: none;
+  }
+}

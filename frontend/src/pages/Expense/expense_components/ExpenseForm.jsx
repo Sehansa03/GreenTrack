@@ -1,378 +1,272 @@
-import { useEffect, useState } from "react";
 
+import { useEffect, useState } from "react";
 import { expenseAPI } from "../../../api/expense";
 import { currencies } from "../../../data/currencies";
 
-export default function ExpenseForm({ onClose, editData }) {
+const categories = [
+  "Food",
+  "Transport",
+  "Shopping",
+  "Bills",
+  "Entertainment",
+  "Health",
+  "Education",
+  "Other",
+];
+
+export default function ExpenseForm({
+  onClose,
+  onSaved,
+  editData,
+  defaultCurrency = "LKR",
+}) {
+  const isEdit = Boolean(editData);
+
   const [form, setForm] = useState({
     amount: "",
     category: "",
     date: "",
     description: "",
-    currency: "LKR",
+    currency: defaultCurrency,
   });
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
 
-  const isEdit = Boolean(editData);
-
-  // AUTO-FILL FORM WHEN EDITING
   useEffect(() => {
     if (editData) {
       setForm({
         amount: editData.amount ?? "",
         category: editData.category ?? "",
-        currency: editData.currency ?? "LKR",
-        description: editData.description ?? "",
         date: editData.date
-          ? editData.date.split("T")[0]
+          ? String(editData.date).slice(0, 10)
           : "",
+        description: editData.description ?? "",
+        currency: editData.currency || defaultCurrency,
       });
     }
-  }, [editData]);
+  }, [editData, defaultCurrency]);
 
-  const handleChange = (e) =>
-    setForm({
-      ...form,
-      [e.target.name]: e.target.value,
-    });
+  const handleChange = (e) => {
+    const { name, value } = e.target;
 
-  // ADD / UPDATE
+    setForm((previous) => ({
+      ...previous,
+      [name]: value,
+    }));
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
 
     if (!form.amount || Number(form.amount) <= 0) {
-      setError("Enter a valid amount");
+      setError("Please enter a valid amount.");
       return;
     }
 
     if (!form.category) {
-      setError("Please select an expense category");
+      setError("Please select an expense category.");
       return;
     }
 
     setLoading(true);
     setError("");
-    setSuccess("");
 
     try {
-      if (isEdit) {
-        await expenseAPI.update(editData._id, {
-          ...form,
-          amount: Number(form.amount),
-        });
+      const payload = {
+        amount: Number(form.amount),
+        category: form.category,
+        date: form.date,
+        description: form.description,
+        currency: form.currency,
+      };
 
-        setSuccess("Expense updated successfully ✅");
+      if (isEdit) {
+        await expenseAPI.update(editData._id, payload);
       } else {
         await expenseAPI.create({
           type: "expense",
-          amount: Number(form.amount),
-          category: form.category,
-          date: form.date,
-          description: form.description,
-          currency: form.currency,
+          ...payload,
         });
-
-        setSuccess("Expense added successfully ✅");
       }
 
-      setTimeout(() => {
+      if (onSaved) {
+        await onSaved();
+      } else {
         onClose();
-        window.location.reload();
-      }, 1000);
+      }
     } catch (err) {
-      console.error(err);
+      console.error("Failed to save expense:", err);
 
       setError(
         err.response?.data?.message ||
-        "Failed to save expense"
+          "Failed to save expense. Please try again."
       );
     } finally {
       setLoading(false);
     }
   };
 
-  const categories = [
-    "Food",
-    "Transport",
-    "Shopping",
-    "Bills",
-    "Entertainment",
-    "Health",
-    "Education",
-    "Other",
-  ];
-
   return (
-    <div style={overlay}>
-      <div style={card}>
-
-        {/* HEADER */}
-        <div style={header}>
+    <div
+      className="gt-expense-modal-overlay"
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget && !loading) {
+          onClose();
+        }
+      }}
+    >
+      <div
+        className="gt-expense-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="gt-expense-modal-title"
+      >
+        <div className="gt-expense-modal-header">
           <div>
-            <h3 style={title}>
-              💸 {isEdit ? "Edit Expense" : "Add Expense"}
-            </h3>
-
-            <p style={subTitle}>
-              Track your spending
+            <p className="gt-expense-modal-eyebrow">
+              EXPENSE MANAGEMENT
             </p>
+
+            <h2 id="gt-expense-modal-title">
+              {isEdit ? "Edit Expense" : "Add Expense"}
+            </h2>
+
+            <p>Keep your spending records up to date.</p>
           </div>
 
           <button
+            type="button"
+            className="gt-expense-modal-close"
             onClick={onClose}
-            style={closeBtn}
+            disabled={loading}
+            aria-label="Close"
           >
-            ✕
+            ×
           </button>
         </div>
 
-        {/* ERROR */}
         {error && (
-          <div style={errorBox}>
-            ⚠ {error}
+          <div className="gt-expense-form-error" role="alert">
+            {error}
           </div>
         )}
 
-        {/* SUCCESS */}
-        {success && (
-          <div style={successBox}>
-            {success}
+        <form
+          className="gt-expense-form"
+          onSubmit={handleSubmit}
+        >
+          <div className="gt-expense-form-grid">
+            <div className="gt-expense-field">
+              <label htmlFor="expense-amount">Amount</label>
+
+              <input
+                id="expense-amount"
+                type="number"
+                name="amount"
+                value={form.amount}
+                onChange={handleChange}
+                placeholder="0.00"
+                min="0.01"
+                step="0.01"
+                required
+              />
+            </div>
+
+            <div className="gt-expense-field">
+              <label htmlFor="expense-currency">
+                Currency
+              </label>
+
+              <select
+                id="expense-currency"
+                name="currency"
+                value={form.currency}
+                onChange={handleChange}
+                required
+              >
+                {currencies.map((item) => (
+                  <option key={item.code} value={item.code}>
+                    {item.code} - {item.name}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
-        )}
 
-        {/* FORM */}
-        <form onSubmit={handleSubmit} style={formStyle}>
-
-          {/* AMOUNT */}
-          <div>
-            <label style={label}>Amount</label>
-
-            <input
-              type="number"
-              name="amount"
-              value={form.amount}
-              onChange={handleChange}
-              placeholder="Enter amount"
-              min="0"
-              step="0.01"
-              style={input}
-            />
-          </div>
-
-          {/* CURRENCY */}
-          <div>
-            <label style={label}>Currency</label>
+          <div className="gt-expense-field">
+            <label htmlFor="expense-category">
+              Category
+            </label>
 
             <select
-              name="currency"
-              value={form.currency}
-              onChange={handleChange}
-              style={select}
-            >
-              {currencies.map((c) => (
-                <option
-                  key={c.code}
-                  value={c.code}
-                >
-                  {c.code} - {c.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* CATEGORY */}
-          <div>
-            <label style={label}>Category</label>
-
-            <select
+              id="expense-category"
               name="category"
               value={form.category}
               onChange={handleChange}
-              style={select}
+              required
             >
-              <option value="">
-                Select category
-              </option>
+              <option value="">Select category</option>
 
               {categories.map((category) => (
-                <option
-                  key={category}
-                  value={category}
-                >
+                <option key={category} value={category}>
                   {category}
                 </option>
               ))}
             </select>
           </div>
 
-          {/* DATE */}
-          <div>
-            <label style={label}>Date</label>
+          <div className="gt-expense-field">
+            <label htmlFor="expense-date">Date</label>
 
             <input
+              id="expense-date"
               type="date"
               name="date"
               value={form.date}
               onChange={handleChange}
-              style={input}
             />
           </div>
 
-          {/* NOTES */}
-          <div>
-            <label style={label}>Notes</label>
+          <div className="gt-expense-field">
+            <label htmlFor="expense-description">
+              Notes
+            </label>
 
             <textarea
+              id="expense-description"
               name="description"
               value={form.description}
               onChange={handleChange}
               placeholder="Optional notes..."
-              style={{
-                ...input,
-                height: 80,
-                resize: "vertical",
-                fontFamily: "inherit",
-              }}
+              rows={3}
             />
           </div>
 
-          {/* BUTTON */}
-          <button
-            type="submit"
-            style={btn}
-            disabled={loading}
-          >
-            {loading
-              ? "Saving..."
-              : isEdit
-              ? "Update Expense →"
-              : "Add Expense →"}
-          </button>
+          <div className="gt-expense-modal-footer">
+            <button
+              type="button"
+              className="gt-expense-cancel-btn"
+              onClick={onClose}
+              disabled={loading}
+            >
+              Cancel
+            </button>
 
+            <button
+              type="submit"
+              className="gt-expense-primary-btn"
+              disabled={loading}
+            >
+              {loading
+                ? "Saving..."
+                : isEdit
+                ? "Save Changes"
+                : "Add Expense"}
+            </button>
+          </div>
         </form>
       </div>
     </div>
   );
 }
-
-/* ================= UI STYLE ================= */
-
-const overlay = {
-  position: "fixed",
-  inset: 0,
-  background: "rgba(0,0,0,0.75)",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  backdropFilter: "blur(8px)",
-  zIndex: 1000,
-};
-
-const card = {
-  width: "100%",
-  maxWidth: 420,
-  background: "rgba(255,255,255,0.03)",
-  border: "1px solid rgba(255,255,255,0.08)",
-  borderRadius: 20,
-  padding: 28,
-  color: "#fff",
-  boxShadow: "0 40px 120px rgba(0,0,0,0.6)",
-};
-
-const header = {
-  display: "flex",
-  justifyContent: "space-between",
-  alignItems: "center",
-  marginBottom: 18,
-};
-
-const title = {
-  fontSize: 20,
-  fontWeight: 700,
-  margin: 0,
-};
-
-const subTitle = {
-  fontSize: 13,
-  color: "rgba(255,255,255,0.4)",
-};
-
-const closeBtn = {
-  background: "transparent",
-  border: "1px solid rgba(255,255,255,0.1)",
-  color: "#aaa",
-  width: 34,
-  height: 34,
-  borderRadius: 10,
-  cursor: "pointer",
-};
-
-const label = {
-  fontSize: 12,
-  color: "rgba(255,255,255,0.5)",
-  display: "block",
-  marginBottom: 6,
-};
-
-const input = {
-  width: "100%",
-  boxSizing: "border-box",
-  padding: "11px 12px",
-  borderRadius: 10,
-  background: "rgba(255,255,255,0.05)",
-  border: "1px solid rgba(255,255,255,0.08)",
-  color: "#fff",
-  outline: "none",
-};
-
-const select = {
-  width: "100%",
-  boxSizing: "border-box",
-  padding: "11px 12px",
-  borderRadius: 10,
-  background: "#151d18",
-  border: "1px solid rgba(74,222,128,0.18)",
-  color: "#f9fafb",
-  outline: "none",
-  cursor: "pointer",
-};
-
-const formStyle = {
-  display: "flex",
-  flexDirection: "column",
-  gap: 14,
-};
-
-const btn = {
-  marginTop: 10,
-  padding: "12px",
-  borderRadius: 12,
-  border: "none",
-  background: "linear-gradient(135deg,#16a34a,#22c55e)",
-  color: "#fff",
-  fontWeight: 600,
-  cursor: "pointer",
-};
-
-const errorBox = {
-  background: "rgba(239,68,68,0.1)",
-  border: "1px solid rgba(239,68,68,0.3)",
-  color: "#f87171",
-  padding: "10px",
-  borderRadius: 10,
-  fontSize: 13,
-  marginBottom: 12,
-};
-
-const successBox = {
-  background: "rgba(34,197,94,0.1)",
-  border: "1px solid rgba(34,197,94,0.3)",
-  color: "#4ade80",
-  padding: "10px",
-  borderRadius: 10,
-  fontSize: 13,
-  marginBottom: 12,
-};

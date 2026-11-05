@@ -1,12 +1,13 @@
 import { useEffect, useState } from "react";
 
 import { budgetAPI } from "../../api/budget";
-import { authAPI } from "../../api/auth";
+import { useCurrency } from "../../context/CurrencyContext";
 import BudgetForm from "./budget_components/BudgetForm";
 
 export default function Budgets() {
   const [budgets, setBudgets] = useState([]);
-  const [baseCurrency, setBaseCurrency] = useState("LKR");
+  const { currency: baseCurrency, loading: currencyLoading, ratesLoading } = useCurrency();
+  const [error, setError] = useState("");
 
   const [budgetType, setBudgetType] = useState("monthly");
 
@@ -32,34 +33,24 @@ export default function Budgets() {
 
   useEffect(() => {
     loadBudgets();
-  }, []);
+  }, [baseCurrency]);
 
   const loadBudgets = async () => {
     try {
       setLoading(true);
 
-      const [budgetRes, profileRes] =
-        await Promise.all([
-          budgetAPI.getAll(),
-          authAPI.getProfile(),
-        ]);
+      setError("");
+      const budgetRes = await budgetAPI.getAll();
 
       setBudgets(
         budgetRes.data.data || []
       );
 
-      setBaseCurrency(
-        (
-          profileRes.data.currency ||
-          "LKR"
-        ).toUpperCase()
-      );
+
 
     } catch (error) {
-      console.error(
-        "Failed to load budgets:",
-        error
-      );
+      console.error("Failed to load budgets:", error);
+      setError(error.response?.data?.message || "Failed to load budgets.");
     } finally {
       setLoading(false);
     }
@@ -149,35 +140,27 @@ export default function Budgets() {
   // SUMMARY
   // ========================================
 
-  const totalBudget =
-    filteredBudgets.reduce(
-      (sum, budget) =>
-        sum +
-        Number(
-          budget.amount || 0
-        ),
-      0
-    );
+  // All summary values must use converted amounts, not stored amounts.
+  const incomplete = filteredBudgets.some(
+    (budget) =>
+      budget.conversionUnavailable === true ||
+      budget.convertedAmount == null ||
+      budget.spent == null
+  );
 
-  const totalSpent =
-    filteredBudgets.reduce(
-      (sum, budget) =>
-        sum +
-        Number(
-          budget.spent || 0
-        ),
-      0
-    );
-
-  const totalRemaining = Math.max(
-    totalBudget - totalSpent,
+  const totalBudget = filteredBudgets.reduce(
+    (sum, budget) => sum + Number(budget.convertedAmount ?? 0),
     0
   );
 
+  const totalSpent = filteredBudgets.reduce(
+    (sum, budget) => sum + Number(budget.spent ?? 0),
+    0
+  );
+
+  const totalRemaining = Math.max(totalBudget - totalSpent, 0);
   const totalPercentage =
-    totalBudget > 0
-      ? (totalSpent / totalBudget) * 100
-      : 0;
+    totalBudget > 0 ? (totalSpent / totalBudget) * 100 : 0;
 
   return (
     <div style={page}>
@@ -312,31 +295,35 @@ export default function Budgets() {
           SUMMARY
       ======================================== */}
 
+      {error && <div style={{ color: "#fca5a5", marginBottom: 16 }}>{error}</div>}
+      {incomplete && !loading && !currencyLoading && !ratesLoading && (
+        <div style={{ color: "#fbbf24", marginBottom: 16 }}>
+          Some exchange rates are unavailable. Totals and usage are hidden until conversion is available.
+        </div>
+      )}
       <div style={summaryGrid}>
 
         <SummaryCard
           label="Total Budget"
-          value={totalBudget}
+          value={incomplete ? "Rate unavailable" : totalBudget}
           currency={baseCurrency}
         />
 
         <SummaryCard
           label="Total Spent"
-          value={totalSpent}
+          value={incomplete ? "Rate unavailable" : totalSpent}
           currency={baseCurrency}
         />
 
         <SummaryCard
           label="Remaining"
-          value={totalRemaining}
+          value={incomplete ? "Rate unavailable" : totalRemaining}
           currency={baseCurrency}
         />
 
         <SummaryCard
           label="Budget Used"
-          value={`${totalPercentage.toFixed(
-            1
-          )}%`}
+          value={incomplete ? "Rate unavailable" : `${totalPercentage.toFixed(1)}%`}
           currency=""
         />
 
@@ -372,7 +359,7 @@ export default function Budgets() {
 
         {/* LOADING */}
 
-        {loading ? (
+        {loading || currencyLoading || ratesLoading ? (
 
           <div style={emptyState}>
             Loading budgets...
@@ -492,16 +479,8 @@ export default function Budgets() {
                     </span>
 
                     <p style={budgetAmount}>
-                      {baseCurrency}{" "}
-                      {Number(
-                        budget.amount || 0
-                      ).toLocaleString(
-                        undefined,
-                        {
-                          maximumFractionDigits: 2,
-                        }
-                      )}
-                    </p>
+                        {budget.convertedAmount == null ? "Rate unavailable" : `${baseCurrency} ${Number(budget.convertedAmount ?? 0).toLocaleString(undefined, { maximumFractionDigits: 2 })}`}
+                      </p>
 
                   </div>
 
@@ -517,15 +496,7 @@ export default function Budgets() {
                       </span>
 
                       <p style={spentValue}>
-                        {baseCurrency}{" "}
-                        {Number(
-                          budget.spent || 0
-                        ).toLocaleString(
-                          undefined,
-                          {
-                            maximumFractionDigits: 2,
-                          }
-                        )}
+                        {budget.spent == null ? "Rate unavailable" : `${baseCurrency} ${Number(budget.spent ?? 0).toLocaleString(undefined, { maximumFractionDigits: 2 })}`}
                       </p>
 
                     </div>
@@ -542,15 +513,7 @@ export default function Budgets() {
                       </span>
 
                       <p style={remainingValue}>
-                        {baseCurrency}{" "}
-                        {Number(
-                          budget.remaining || 0
-                        ).toLocaleString(
-                          undefined,
-                          {
-                            maximumFractionDigits: 2,
-                          }
-                        )}
+                        {budget.remaining == null ? "Rate unavailable" : `${baseCurrency} ${Number(budget.remaining ?? 0).toLocaleString(undefined, { maximumFractionDigits: 2 })}`}
                       </p>
 
                     </div>
@@ -576,10 +539,7 @@ export default function Budgets() {
                         fontWeight: 600,
                       }}
                     >
-                      {Number(
-                        budget.percentage || 0
-                      ).toFixed(1)}
-                      % used
+                      {budget.percentage == null ? "Rate unavailable" : `${Number(budget.percentage ?? 0).toFixed(1)}% used`}
                     </span>
 
                     <span
@@ -591,7 +551,7 @@ export default function Budgets() {
                         : budget.status ===
                           "warning"
                         ? "Near limit"
-                        : "On track"}
+                        : budget.status === "unavailable" ? "Rate unavailable" : "On track"}
                     </span>
 
                   </div>
@@ -608,13 +568,7 @@ export default function Budgets() {
                     <div
                       style={{
                         ...progressBar,
-                        width: `${Math.min(
-                          Number(
-                            budget.percentage ||
-                              0
-                          ),
-                          100
-                        )}%`,
+                        width: `${Math.min(Number(budget.percentage ?? 0), 100)}%`,
                         background:
                           budget.status ===
                           "over"

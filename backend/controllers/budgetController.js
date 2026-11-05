@@ -1,13 +1,38 @@
+
 const axios = require("axios");
 
 const Budget = require("../models/budgetModel");
 const Expense = require("../models/expenseModel");
 const User = require("../models/user");
 
+// ========================================
+// CURRENCY HELPERS
+// ========================================
+
+const normalizeCurrency = (value, fallback = "LKR") =>
+  String(value || fallback).trim().toUpperCase();
+
+const convertAmount = (amount, fromCurrency, baseCurrency, rates) => {
+  const value = Number(amount);
+  if (!Number.isFinite(value)) return null;
+
+  const from = normalizeCurrency(fromCurrency, baseCurrency);
+
+  if (from === baseCurrency) return value;
+
+  const rate = Number(rates[from]);
+
+  if (!Number.isFinite(rate) || rate <= 0) {
+    return null;
+  }
+
+  return value / rate;
+};
 
 // ========================================
 // CREATE BUDGET
 // ========================================
+
 const createBudget = async (req, res) => {
   try {
     const {
@@ -19,33 +44,44 @@ const createBudget = async (req, res) => {
       month,
     } = req.body;
 
-    if (!category || !amount || !budgetType || !year) {
+    const numericAmount = Number(amount);
+    const numericYear = Number(year);
+    const numericMonth = Number(month);
+
+    if (
+      !category ||
+      !Number.isFinite(numericAmount) ||
+      numericAmount <= 0 ||
+      !["monthly", "yearly"].includes(budgetType) ||
+      !Number.isInteger(numericYear) ||
+      numericYear < 1
+    ) {
       return res.status(400).json({
         message:
-          "Category, amount, budget type and year are required",
+          "Valid category, amount, budget type and year are required",
       });
     }
 
     if (
       budgetType === "monthly" &&
-      (!month || month < 1 || month > 12)
+      (!Number.isInteger(numericMonth) ||
+        numericMonth < 1 ||
+        numericMonth > 12)
     ) {
       return res.status(400).json({
-        message:
-          "Month is required for monthly budgets",
+        message: "Valid month is required for monthly budgets",
       });
     }
 
-    // Prevent duplicate budgets
+    const periodMonth =
+      budgetType === "monthly" ? numericMonth : undefined;
+
     const existingBudget = await Budget.findOne({
       user: req.user.id,
       category,
       budgetType,
-      year,
-      month:
-        budgetType === "monthly"
-          ? month
-          : undefined,
+      year: numericYear,
+      month: periodMonth,
     });
 
     if (existingBudget) {
@@ -55,298 +91,236 @@ const createBudget = async (req, res) => {
       });
     }
 
+    const user = await User.findById(req.user.id).select("currency");
+
     const budget = await Budget.create({
       user: req.user.id,
       category,
-      amount,
-      currency: currency || "LKR",
+      amount: numericAmount,
+      currency: normalizeCurrency(
+        currency,
+        user?.currency || "LKR"
+      ),
       budgetType,
-      year,
-      month:
-        budgetType === "monthly"
-          ? month
-          : undefined,
+      year: numericYear,
+      month: periodMonth,
     });
 
-    res.status(201).json({
+    return res.status(201).json({
       message: "Budget created successfully",
       data: budget,
     });
-
   } catch (error) {
-    console.error(
-      "Create budget error:",
-      error
-    );
+    console.error("Create budget error:", error);
 
-    res.status(500).json({
+    return res.status(500).json({
       message: "Failed to create budget",
     });
   }
 };
 
-
 // ========================================
 // GET ALL BUDGETS
 // ========================================
+
 const getBudgets = async (req, res) => {
   try {
+    const user = await User.findById(req.user.id).select("currency");
+    const baseCurrency = normalizeCurrency(user?.currency);
 
-    // Get user's preferred/base currency
-    const user = await User.findById(
-      req.user.id
-    ).select("currency");
+    const [budgets, expenses] = await Promise.all([
+      Budget.find({ user: req.user.id }).sort({
+        year: -1,
+        month: -1,
+      }),
+      Expense.find({ user: req.user.id }),
+    ]);
 
-    const baseCurrency =
-      user?.currency || "LKR";
+    const rates = { [baseCurrency]: 1 };
 
-
-    // ========================================
-    // Get exchange rates
-    // ========================================
-
-    let rates = {
-      [baseCurrency]: 1,
-    };
-
-    try {
-      const response = await axios.get(
-        `https://api.frankfurter.dev/v2/rates?base=${baseCurrency}`
-      );
-
-      response.data.forEach((item) => {
-        rates[item.quote] = item.rate;
-      });
-
-      rates[baseCurrency] = 1;
-
-    } catch (currencyError) {
-
-      console.error(
-        "Failed to fetch currency rates:",
-        currencyError.response?.data ||
-          currencyError.message
-      );
-
-      // Continue with base currency only
-    }
-
-
-    // ========================================
-    // Get user's budgets
-    // ========================================
-
-    const budgets = await Budget.find({
-      user: req.user.id,
-    }).sort({
-      year: -1,
-      month: -1,
-    });
-
-
-    // ========================================
-    // Calculate spending
-    // ========================================
-
-    const budgetsWithSpending =
-      await Promise.all(
-        budgets.map(async (budget) => {
-
-          const expenseQuery = {
-            user: req.user.id,
-            category: budget.category,
-          };
-
-          let startDate;
-          let endDate;
-
-
-          // Monthly budget
-          if (
-            budget.budgetType === "monthly"
-          ) {
-
-            startDate = new Date(
-              budget.year,
-              budget.month - 1,
-              1
-            );
-
-            endDate = new Date(
-              budget.year,
-              budget.month,
-              1
-            );
-
-          }
-
-          // Yearly budget
-          else {
-
-            startDate = new Date(
-              budget.year,
-              0,
-              1
-            );
-
-            endDate = new Date(
-              budget.year + 1,
-              0,
-              1
-            );
-          }
-
-
-          const expenses =
-            await Expense.find({
-              ...expenseQuery,
-              date: {
-                $gte: formatDate(startDate),
-                $lt: formatDate(endDate),
-              },
-            });
-
-
-          // ========================================
-          // Convert all expenses to base currency
-          // ========================================
-
-          const spent =
-            expenses.reduce(
-              (total, expense) => {
-
-                const amount =
-                  Number(
-                    expense.amount || 0
-                  );
-
-                const expenseCurrency =
-                  (
-                    expense.currency ||
-                    baseCurrency
-                  ).toUpperCase();
-
-
-                // Already base currency
-                if (
-                  expenseCurrency ===
-                  baseCurrency
-                ) {
-                  return total + amount;
-                }
-
-
-                // Convert foreign currency
-                const rate =
-                  rates[expenseCurrency];
-
-
-                if (!rate) {
-                  console.warn(
-                    `Exchange rate not found for ${expenseCurrency}`
-                  );
-
-                  return total;
-                }
-
-
-                // Same conversion logic
-                // used by GreenTrack Analytics
-                const convertedAmount =
-                  amount / Number(rate);
-
-
-                return (
-                  total +
-                  convertedAmount
-                );
-              },
-              0
-            );
-
-
-          // ========================================
-          // Budget calculations
-          // ========================================
-
-          const budgetAmount =
-            Number(
-              budget.amount || 0
-            );
-
-
-          const remaining =
-            Math.max(budgetAmount - spent, 0);
-
-
-          const percentage =
-            budgetAmount > 0
-              ? (spent / budgetAmount) * 100
-              : 0;
-
-
-          let status = "normal";
-
-          if (percentage >= 100) {
-            status = "over";
-          } else if (percentage >= 80) {
-            status = "warning";
-          }
-
-
-          return {
-            ...budget.toObject(),
-
-            // Always expose budget
-            // calculations in base currency
-            currency: baseCurrency,
-
-            spent,
-            remaining,
-            percentage,
-            status,
-          };
-        })
-      );
-
-
-    res.status(200).json({
-      data: budgetsWithSpending,
-    });
-
-  } catch (error) {
-
-    console.error(
-      "Get budgets error:",
-      error
+    // Fetch rates only when foreign currencies are present.
+    const needsConversion = [...budgets, ...expenses].some(
+      (item) =>
+        normalizeCurrency(item.currency, baseCurrency) !==
+        baseCurrency
     );
 
-    res.status(500).json({
+    if (needsConversion) {
+      try {
+        const response = await axios.get(
+          `https://api.frankfurter.dev/v2/rates?base=${encodeURIComponent(
+            baseCurrency
+          )}`,
+          { timeout: 10000 }
+        );
+
+        const rows = Array.isArray(response.data)
+          ? response.data
+          : [];
+
+        rows.forEach((item) => {
+          const rate = Number(item.rate);
+
+          if (
+            item.quote &&
+            Number.isFinite(rate) &&
+            rate > 0
+          ) {
+            rates[normalizeCurrency(item.quote)] = rate;
+          }
+        });
+      } catch (error) {
+        console.error(
+          "Failed to fetch exchange rates:",
+          error.response?.data || error.message
+        );
+      }
+    }
+
+    // Convert every budget and its related expenses.
+    const budgetsWithSpending = budgets.map((budget) => {
+      const originalCurrency = normalizeCurrency(
+        budget.currency,
+        baseCurrency
+      );
+
+      const convertedAmount = convertAmount(
+        budget.amount,
+        originalCurrency,
+        baseCurrency,
+        rates
+      );
+
+      const startDate =
+        budget.budgetType === "monthly"
+          ? `${budget.year}-${String(budget.month).padStart(
+              2,
+              "0"
+            )}-01`
+          : `${budget.year}-01-01`;
+
+      const endDate =
+        budget.budgetType === "monthly"
+          ? Number(budget.month) === 12
+            ? `${Number(budget.year) + 1}-01-01`
+            : `${budget.year}-${String(
+                Number(budget.month) + 1
+              ).padStart(2, "0")}-01`
+          : `${Number(budget.year) + 1}-01-01`;
+
+      const relatedExpenses = expenses.filter((expense) => {
+        const expenseDate = new Date(expense.date);
+
+        if (Number.isNaN(expenseDate.getTime())) {
+          return false;
+        }
+
+        const date = expenseDate.toISOString().slice(0, 10);
+
+        return (
+          expense.category === budget.category &&
+          date >= startDate &&
+          date < endDate
+        );
+      });
+
+      let spent = 0;
+      let conversionUnavailable = convertedAmount === null;
+
+      relatedExpenses.forEach((expense) => {
+        const convertedExpense = convertAmount(
+          expense.amount,
+          expense.currency,
+          baseCurrency,
+          rates
+        );
+
+        if (convertedExpense === null) {
+          conversionUnavailable = true;
+        } else {
+          spent += convertedExpense;
+        }
+      });
+
+      const remaining = conversionUnavailable
+        ? null
+        : Math.max(convertedAmount - spent, 0);
+
+      const percentage = conversionUnavailable
+        ? null
+        : convertedAmount > 0
+          ? (spent / convertedAmount) * 100
+          : 0;
+
+      let status = "normal";
+
+      if (conversionUnavailable) {
+        status = "unavailable";
+      } else if (percentage >= 100) {
+        status = "over";
+      } else if (percentage >= 80) {
+        status = "warning";
+      }
+
+      return {
+        ...budget.toObject(),
+
+        // Keep original values for editing.
+        amount: Number(budget.amount),
+        currency: originalCurrency,
+        originalCurrency,
+
+        // Converted values for display.
+        displayCurrency: baseCurrency,
+        convertedAmount,
+        spent: conversionUnavailable ? null : spent,
+        remaining,
+        percentage,
+        status,
+        conversionUnavailable,
+      };
+    });
+
+    return res.status(200).json({
+      data: budgetsWithSpending,
+      baseCurrency,
+    });
+  } catch (error) {
+    console.error("Get budgets error:", error);
+
+    return res.status(500).json({
       message: "Failed to fetch budgets",
     });
   }
 };
 
-
 // ========================================
 // UPDATE BUDGET
 // ========================================
+
 const updateBudget = async (req, res) => {
   try {
+    const amount = Number(req.body.amount);
 
-    const budget =
-      await Budget.findOneAndUpdate(
-        {
-          _id: req.params.id,
-          user: req.user.id,
-        },
-        req.body,
-        {
-          new: true,
-          runValidators: true,
-        }
-      );
+    if (!Number.isFinite(amount) || amount <= 0) {
+      return res.status(400).json({
+        message: "A positive budget amount is required",
+      });
+    }
 
+    const budget = await Budget.findOneAndUpdate(
+      {
+        _id: req.params.id,
+        user: req.user.id,
+      },
+      {
+        $set: { amount },
+      },
+      {
+        new: true,
+        runValidators: true,
+      }
+    );
 
     if (!budget) {
       return res.status(404).json({
@@ -354,39 +328,29 @@ const updateBudget = async (req, res) => {
       });
     }
 
-
-    res.status(200).json({
-      message:
-        "Budget updated successfully",
+    return res.status(200).json({
+      message: "Budget updated successfully",
       data: budget,
     });
-
   } catch (error) {
+    console.error("Update budget error:", error);
 
-    console.error(
-      "Update budget error:",
-      error
-    );
-
-    res.status(500).json({
+    return res.status(500).json({
       message: "Failed to update budget",
     });
   }
 };
 
-
 // ========================================
 // DELETE BUDGET
 // ========================================
+
 const deleteBudget = async (req, res) => {
   try {
-
-    const budget =
-      await Budget.findOneAndDelete({
-        _id: req.params.id,
-        user: req.user.id,
-      });
-
+    const budget = await Budget.findOneAndDelete({
+      _id: req.params.id,
+      user: req.user.id,
+    });
 
     if (!budget) {
       return res.status(404).json({
@@ -394,49 +358,17 @@ const deleteBudget = async (req, res) => {
       });
     }
 
-
-    res.status(200).json({
-      message:
-        "Budget deleted successfully",
+    return res.status(200).json({
+      message: "Budget deleted successfully",
     });
-
   } catch (error) {
+    console.error("Delete budget error:", error);
 
-    console.error(
-      "Delete budget error:",
-      error
-    );
-
-    res.status(500).json({
-      message:
-        "Failed to delete budget",
+    return res.status(500).json({
+      message: "Failed to delete budget",
     });
   }
 };
-
-
-// ========================================
-// FORMAT DATE
-// ========================================
-const formatDate = (date) => {
-
-  const year =
-    date.getFullYear();
-
-  const month =
-    String(
-      date.getMonth() + 1
-    ).padStart(2, "0");
-
-  const day =
-    String(
-      date.getDate()
-    ).padStart(2, "0");
-
-
-  return `${year}-${month}-${day}`;
-};
-
 
 module.exports = {
   createBudget,

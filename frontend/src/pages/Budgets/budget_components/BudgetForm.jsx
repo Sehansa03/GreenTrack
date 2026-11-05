@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { budgetAPI } from "../../../api/budget";
-import { authAPI } from "../../../api/auth";
+import { useCurrency } from "../../../context/CurrencyContext";
 
 const categories = [
   "Food",
@@ -24,33 +24,11 @@ const BudgetForm = ({ editData, onClose, onSuccess }) => {
     month: new Date().getMonth() + 1,
   });
 
-  const [baseCurrency, setBaseCurrency] = useState("LKR");
+  const { currency: baseCurrency, convertAmount } = useCurrency();
+  const originalCurrency = editData?.originalCurrency || editData?.currency || baseCurrency;
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
-
-  // ========================================
-  // GET USER'S REGISTERED CURRENCY
-  // ========================================
-  useEffect(() => {
-    const loadProfile = async () => {
-      try {
-        const response = await authAPI.getProfile();
-
-        const currency =
-          response.data?.data?.currency ||
-          response.data?.currency ||
-          "LKR";
-
-        setBaseCurrency(currency.toUpperCase());
-      } catch (error) {
-        console.error("Failed to load profile:", error);
-        setBaseCurrency("LKR");
-      }
-    };
-
-    loadProfile();
-  }, []);
 
   // ========================================
   // LOAD EDIT DATA
@@ -59,7 +37,7 @@ const BudgetForm = ({ editData, onClose, onSuccess }) => {
     if (editData) {
       setFormData({
         category: editData.category || "",
-        amount: editData.amount || "",
+        amount: editData.amount ?? "",
         budgetType: editData.budgetType || "monthly",
         year:
           editData.year ||
@@ -246,7 +224,7 @@ const BudgetForm = ({ editData, onClose, onSuccess }) => {
               }}
             >
               {isEditing
-                ? "Update your budget amount"
+                ? `Update the original amount in ${originalCurrency}`
                 : `Set your spending limit in ${baseCurrency}`}
             </p>
           </div>
@@ -352,7 +330,7 @@ const BudgetForm = ({ editData, onClose, onSuccess }) => {
                   fontWeight: "600",
                 }}
               >
-                {baseCurrency}
+                {isEditing ? originalCurrency : baseCurrency}
               </span>
             </div>
           </div>

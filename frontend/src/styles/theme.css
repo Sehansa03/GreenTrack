@@ -1,0 +1,37 @@
+
+:root {
+  /* GreenTrack backgrounds */
+  --gt-bg: #0c1110;
+  --gt-sidebar-bg: #101613;
+  --gt-card: #171e1b;
+  --gt-input: #202925;
+  --gt-hover: #242f29;
+
+  /* Borders */
+  --gt-border: #28342d;
+  --gt-border-hover: #42634e;
+
+  /* Brand */
+  --gt-primary: #258457;
+  --gt-primary-hover: #2c9965;
+  --gt-accent: #35b978;
+  --gt-accent-light: #8bd4ab;
+
+  /* Text */
+  --gt-text: #f2f5f3;
+  --gt-text-secondary: #93a29a;
+  --gt-text-muted: #71877a;
+
+  /* Financial indicators */
+  --gt-positive: #35b978;
+  --gt-negative: #f87171;
+  --gt-warning: #fbbf24;
+
+  /* Shape */
+  --gt-radius-sm: 8px;
+  --gt-radius-md: 12px;
+  --gt-radius-lg: 16px;
+
+  /* Shadows */
+  --gt-shadow: 0 12px 32px rgba(0, 0, 0, 0.18);
+}

@@ -1,11 +1,29 @@
 
+import { useState } from "react";
 import { expenseAPI } from "../../../api/expense";
 import { useCurrency } from "../../../context/CurrencyContext";
 
+const categoryIcons = {
+  Food: "🍽️",
+  Transport: "🚗",
+  Shopping: "🛍️",
+  Bills: "🧾",
+  Entertainment: "🎬",
+  Health: "💊",
+  Education: "📚",
+  Other: "📦",
+};
+
+const formatMoney = (amount, currency) =>
+  `${currency} ${Number(amount || 0).toLocaleString(undefined, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
+
 export default function ExpenseTable({
   expenses = [],
-  setExpenses,
   onEdit,
+  onDeleted,
 }) {
   const {
     currency: baseCurrency,
@@ -13,28 +31,9 @@ export default function ExpenseTable({
     ratesLoading,
   } = useCurrency();
 
-  const handleDelete = async (id) => {
-    const confirmed = window.confirm(
-      "Are you sure you want to delete this expense?"
-    );
-
-    if (!confirmed) return;
-
-    try {
-      await expenseAPI.delete(id);
-
-      setExpenses((prev) =>
-        prev.filter((expense) => expense._id !== id)
-      );
-    } catch (error) {
-      console.error("DELETE EXPENSE ERROR:", error);
-
-      alert(
-        error?.response?.data?.message ||
-        "Failed to delete expense."
-      );
-    }
-  };
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
 
   const displayAmount = (expense) => {
     if (ratesLoading) return "Converting...";
@@ -44,82 +43,100 @@ export default function ExpenseTable({
       expense.currency || baseCurrency
     );
 
-    if (converted === null || !Number.isFinite(Number(converted))) {
+    if (
+      converted == null ||
+      !Number.isFinite(Number(converted))
+    ) {
       return "Rate unavailable";
     }
 
-    return `- ${baseCurrency} ${Number(converted).toLocaleString(
-      undefined,
-      {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      }
-    )}`;
+    return `− ${formatMoney(converted, baseCurrency)}`;
   };
 
-  if (expenses.length === 0) {
-    return (
-      <div style={empty}>
-        <div style={emptyIcon}>📭</div>
-        <p style={emptyTitle}>No expense records found</p>
-        <p style={emptyText}>
-          Add your first expense to start tracking your spending.
-        </p>
-      </div>
-    );
-  }
+  const handleDelete = async () => {
+    if (!deleteTarget || deleting) return;
+
+    setDeleting(true);
+    setDeleteError("");
+
+    try {
+      await expenseAPI.delete(deleteTarget._id);
+
+      onDeleted?.(deleteTarget._id);
+      setDeleteTarget(null);
+    } catch (err) {
+      console.error("Failed to delete expense:", err);
+
+      setDeleteError(
+        err.response?.data?.message ||
+          "Failed to delete expense. Please try again."
+      );
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   return (
-    <div style={wrapper}>
-      <table style={table}>
-        <thead>
-          <tr>
-            <th style={th}>AMOUNT</th>
-            <th style={th}>CATEGORY</th>
-            <th style={th}>ORIGINAL CURRENCY</th>
-            <th style={th}>DATE</th>
-            <th style={th}>ACTIONS</th>
-          </tr>
-        </thead>
-
-        <tbody>
+    <>
+      {expenses.length === 0 ? (
+        <div className="gt-expense-empty">
+          <span aria-hidden="true">▤</span>
+          <strong>No expense records found</strong>
+          <p>
+            Add an expense or adjust your filters to see records.
+          </p>
+        </div>
+      ) : (
+        <div className="gt-expense-transaction-list">
           {expenses.map((expense) => (
-            <tr key={expense._id}>
-              <td style={td}>
-                <span style={amount}>
-                  {displayAmount(expense)}
-                </span>
-              </td>
+            <article
+              className="gt-expense-transaction-row"
+              key={expense._id}
+            >
+              <div className="gt-expense-transaction-main">
+                <div
+                  className="gt-expense-category-icon"
+                  aria-hidden="true"
+                >
+                  {categoryIcons[expense.category] || "📦"}
+                </div>
 
-              <td style={td}>
-                <div style={categoryWrapper}>
-                  <div style={categoryIcon}>
-                    {getCategoryIcon(expense.category)}
-                  </div>
+                <div className="gt-expense-transaction-info">
+                  <strong>{expense.category || "Other"}</strong>
 
-                  <span style={categoryText}>
-                    {expense.category}
+                  <span>
+                    {expense.date
+                      ? String(expense.date).slice(0, 10)
+                      : "No date"}
+                    {" · "}
+                    {expense.currency || baseCurrency}
+                  </span>
+
+                  {expense.description && (
+                    <span className="gt-expense-transaction-note">
+                      {expense.description}
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              <div className="gt-expense-transaction-right">
+                <div className="gt-expense-transaction-amount">
+                  <strong>{displayAmount(expense)}</strong>
+
+                  <span>
+                    Original:{" "}
+                    {formatMoney(
+                      expense.amount,
+                      expense.currency || baseCurrency
+                    )}
                   </span>
                 </div>
-              </td>
 
-              <td style={td}>
-                <span style={currencyBadge}>
-                  {expense.currency || baseCurrency}
-                </span>
-              </td>
-
-              <td style={td}>
-                {expense.date
-                  ? new Date(expense.date).toLocaleDateString()
-                  : "—"}
-              </td>
-
-              <td style={td}>
-                <div style={actions}>
+                <div className="gt-expense-actions">
                   <button
                     type="button"
-                    style={editBtn}
+                    className="gt-expense-edit-btn"
                     onClick={() => onEdit(expense)}
                   >
                     Edit
@@ -127,144 +144,100 @@ export default function ExpenseTable({
 
                   <button
                     type="button"
-                    style={deleteBtn}
-                    onClick={() => handleDelete(expense._id)}
+                    className="gt-expense-delete-btn"
+                    onClick={() => {
+                      setDeleteError("");
+                      setDeleteTarget(expense);
+                    }}
                   >
                     Delete
                   </button>
                 </div>
-              </td>
-            </tr>
+              </div>
+            </article>
           ))}
-        </tbody>
-      </table>
-    </div>
+        </div>
+      )}
+
+      {deleteTarget && (
+        <div
+          className="gt-expense-delete-overlay"
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget && !deleting) {
+              setDeleteTarget(null);
+            }
+          }}
+        >
+          <div
+            className="gt-expense-delete-modal"
+            role="alertdialog"
+            aria-modal="true"
+            aria-labelledby="gt-expense-delete-title"
+          >
+            <div className="gt-expense-delete-icon">
+              <svg
+                width="23"
+                height="23"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M3 6h18M8 6V4h8v2m3 0-1 14H6L5 6" />
+                <path d="M10 10v6M14 10v6" />
+              </svg>
+            </div>
+
+            <h2 id="gt-expense-delete-title">
+              Delete this expense?
+            </h2>
+
+            <p>
+              This transaction will be permanently deleted.
+              This action cannot be undone.
+            </p>
+
+            <div className="gt-expense-delete-details">
+              <span>{deleteTarget.category || "Expense"}</span>
+
+              <strong>
+                {formatMoney(
+                  deleteTarget.amount,
+                  deleteTarget.currency || baseCurrency
+                )}
+              </strong>
+            </div>
+
+            {deleteError && (
+              <p className="gt-expense-delete-error" role="alert">
+                {deleteError}
+              </p>
+            )}
+
+            <div className="gt-expense-delete-footer">
+              <button
+                type="button"
+                className="gt-expense-cancel-btn"
+                onClick={() => setDeleteTarget(null)}
+                disabled={deleting}
+              >
+                Cancel
+              </button>
+
+              <button
+                type="button"
+                className="gt-expense-confirm-delete-btn"
+                onClick={handleDelete}
+                disabled={deleting}
+              >
+                {deleting ? "Deleting..." : "Delete Expense"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
-
-function getCategoryIcon(category) {
-  const icons = {
-    Food: "🍴",
-    Transport: "🚗",
-    Shopping: "🛍",
-    Bills: "🧾",
-    Entertainment: "🎬",
-    Health: "❤",
-    Education: "📚",
-    Other: "●",
-  };
-
-  return icons[category] || "●";
-}
-
-const wrapper = {
-  width: "100%",
-  overflowX: "auto",
-};
-
-const table = {
-  width: "100%",
-  borderCollapse: "collapse",
-  fontSize: 13,
-};
-
-const th = {
-  textAlign: "left",
-  padding: "14px 12px",
-  fontSize: 10,
-  letterSpacing: "1px",
-  color: "rgba(255,255,255,0.3)",
-  borderBottom: "1px solid rgba(255,255,255,0.06)",
-  whiteSpace: "nowrap",
-};
-
-const td = {
-  padding: "16px 12px",
-  borderBottom: "1px solid rgba(255,255,255,0.04)",
-  color: "rgba(255,255,255,0.65)",
-  whiteSpace: "nowrap",
-};
-
-const amount = {
-  color: "#f87171",
-  fontWeight: 700,
-  whiteSpace: "nowrap",
-};
-
-const categoryWrapper = {
-  display: "flex",
-  alignItems: "center",
-  gap: 10,
-};
-
-const categoryIcon = {
-  width: 30,
-  height: 30,
-  borderRadius: 8,
-  background: "rgba(74,222,128,0.1)",
-  color: "#4ade80",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  fontSize: 14,
-};
-
-const categoryText = {
-  color: "#e5e7eb",
-};
-
-const currencyBadge = {
-  padding: "5px 8px",
-  borderRadius: 6,
-  background: "rgba(255,255,255,0.05)",
-  fontSize: 11,
-  color: "#d1d5db",
-};
-
-const actions = {
-  display: "flex",
-  gap: 7,
-};
-
-const editBtn = {
-  background: "rgba(255,255,255,0.06)",
-  border: "none",
-  color: "#d1d5db",
-  padding: "6px 10px",
-  borderRadius: 6,
-  cursor: "pointer",
-  fontSize: 11,
-};
-
-const deleteBtn = {
-  background: "rgba(248,113,113,0.08)",
-  border: "none",
-  color: "#f87171",
-  padding: "6px 10px",
-  borderRadius: 6,
-  cursor: "pointer",
-  fontSize: 11,
-};
-
-const empty = {
-  textAlign: "center",
-  padding: 50,
-  color: "rgba(255,255,255,0.35)",
-};
-
-const emptyIcon = {
-  fontSize: 32,
-  marginBottom: 10,
-};
-
-const emptyTitle = {
-  margin: 0,
-  color: "rgba(255,255,255,0.55)",
-  fontSize: 14,
-};
-
-const emptyText = {
-  margin: "7px 0 0",
-  fontSize: 12,
-  color: "rgba(255,255,255,0.25)",
-};

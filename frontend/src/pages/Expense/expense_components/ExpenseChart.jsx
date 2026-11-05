@@ -1,289 +1,214 @@
+
+import { useMemo } from "react";
 import {
   PieChart,
   Pie,
   Cell,
   Tooltip,
   ResponsiveContainer,
-  Legend,
 } from "recharts";
+
+import { useCurrency } from "../../../context/CurrencyContext";
+
+const COLORS = [
+  "#35b978",
+  "#60a5fa",
+  "#eabf69",
+  "#f28b82",
+  "#a78bfa",
+  "#fb923c",
+  "#2dd4bf",
+  "#94a3b8",
+];
+
+const formatMoney = (value, currency) =>
+  `${currency} ${Number(value || 0).toLocaleString(undefined, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
 
 export default function ExpenseChart({
   expenses = [],
-  baseCurrency = "LKR",
-  rates = {},
+  baseCurrency,
 }) {
-  // ============================
-  // CONVERT TO BASE CURRENCY
-  // ============================
-  const convertToBase = (amount, currency) => {
-    const numericAmount = Number(amount || 0);
+  const {
+    currency: preferredCurrency,
+    convertAmount,
+    ratesLoading,
+  } = useCurrency();
 
-    if (currency === baseCurrency) {
-      return numericAmount;
-    }
+  const currency = baseCurrency || preferredCurrency;
 
-    const rate = rates[currency];
+  const chartData = useMemo(() => {
+    const totals = {};
 
-    if (!rate) {
-      return 0;
-    }
+    expenses.forEach((expense) => {
+      const converted = convertAmount(
+        expense.amount,
+        expense.currency || currency
+      );
 
-    return numericAmount / Number(rate);
-  };
+      const numeric = Number(converted);
 
-  // ============================
-  // GROUP EXPENSES BY CATEGORY
-  // ============================
-  const categoryTotals = {};
+      if (
+        converted == null ||
+        !Number.isFinite(numeric) ||
+        numeric <= 0
+      ) {
+        return;
+      }
 
-  expenses.forEach((expense) => {
-    const category = expense.category || "Other";
+      const category = expense.category || "Other";
+      totals[category] = (totals[category] || 0) + numeric;
+    });
 
-    const amount = convertToBase(
-      expense.amount,
-      expense.currency
-    );
+    return Object.entries(totals)
+      .map(([name, value]) => ({
+        name,
+        value,
+      }))
+      .sort((a, b) => b.value - a.value);
+  }, [expenses, convertAmount, currency]);
 
-    categoryTotals[category] =
-      (categoryTotals[category] || 0) + amount;
-  });
+  const total = chartData.reduce(
+    (sum, item) => sum + item.value,
+    0
+  );
 
-  const chartData = Object.entries(categoryTotals)
-    .map(([category, amount]) => ({
-      name: category,
-      value: Math.round(amount * 100) / 100,
-    }))
-    .filter((item) => item.value > 0);
+  return (
+    <div className="gt-expense-chart">
+      <div className="gt-expense-chart-header">
+        <h3>Expense Distribution</h3>
+        <p>Spending breakdown by category · {currency}</p>
+      </div>
 
-  // ============================
-  // CATEGORY COLORS
-  // ============================
-  const COLORS = [
-    "#22c55e",
-    "#38bdf8",
-    "#facc15",
-    "#f87171",
-    "#a78bfa",
-    "#fb923c",
-    "#2dd4bf",
-    "#94a3b8",
-  ];
-
-  // ============================
-  // EMPTY STATE
-  // ============================
-  if (chartData.length === 0) {
-    return (
-      <div>
-        <div style={header}>
-          <h3 style={title}>
-            Expense Distribution
-          </h3>
-
-          <p style={subtitle}>
-            Breakdown by category · {baseCurrency}
-          </p>
+      {ratesLoading ? (
+        <div className="gt-expense-chart-empty">
+          Converting currencies...
         </div>
-
-        <div style={empty}>
-          <div style={emptyIcon}>◔</div>
-
-          <p style={emptyTitle}>
-            No expense data
-          </p>
-
-          <p style={emptyText}>
+      ) : chartData.length === 0 ? (
+        <div className="gt-expense-chart-empty">
+          <span className="gt-expense-chart-empty-icon">
+            ◔
+          </span>
+          <strong>No expense data</strong>
+          <p>
             Add expenses to see your spending distribution.
           </p>
         </div>
-      </div>
-    );
-  }
+      ) : (
+        <>
+          <div className="gt-expense-donut-wrapper">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={chartData}
+                  dataKey="value"
+                  nameKey="name"
+                  cx="50%"
+                  cy="50%"
+                  innerRadius="64%"
+                  outerRadius="87%"
+                  paddingAngle={2}
+                  stroke="none"
+                >
+                  {chartData.map((item, index) => (
+                    <Cell
+                      key={item.name}
+                      fill={COLORS[index % COLORS.length]}
+                    />
+                  ))}
+                </Pie>
 
-  return (
-    <div>
-      {/* HEADER */}
-      <div style={header}>
-        <h3 style={title}>
-          Expense Distribution
-        </h3>
+                <Tooltip
+                  content={({ active, payload }) => {
+                    if (!active || !payload?.length) {
+                      return null;
+                    }
 
-        <p style={subtitle}>
-          Breakdown by category · {baseCurrency}
-        </p>
-      </div>
+                    const item = payload[0].payload;
 
-      {/* CHART */}
-      <div style={chartWrapper}>
-        <ResponsiveContainer
-          width="100%"
-          height={280}
-        >
-          <PieChart>
-            <Pie
-              data={chartData}
-              dataKey="value"
-              nameKey="name"
-              cx="50%"
-              cy="45%"
-              outerRadius={85}
-              innerRadius={52}
-              paddingAngle={3}
-            >
-              {chartData.map((entry, index) => (
-                <Cell
-                  key={`cell-${entry.name}`}
-                  fill={COLORS[index % COLORS.length]}
+                    return (
+                      <div className="gt-expense-chart-tooltip">
+                        <strong>{item.name}</strong>
+                        <span>
+                          {formatMoney(item.value, currency)}
+                        </span>
+                        <small>
+                          {total > 0
+                            ? ((item.value / total) * 100).toFixed(1)
+                            : 0}
+                          %
+                        </small>
+                      </div>
+                    );
+                  }}
                 />
-              ))}
-            </Pie>
+              </PieChart>
+            </ResponsiveContainer>
 
-            <Tooltip
-              formatter={(value) =>
-                `${baseCurrency} ${Number(value).toLocaleString()}`
-              }
-              contentStyle={{
-                background: "#111a15",
-                border: "1px solid rgba(74,222,128,0.15)",
-                borderRadius: 10,
-                color: "#fff",
-                fontSize: 12,
-              }}
-              itemStyle={{
-                color: "#f9fafb",
-              }}
-              labelStyle={{
-                color: "#4ade80",
-              }}
-            />
+            <div className="gt-expense-donut-center">
+              <span>Total Spending</span>
+              <strong>
+                {Number(total).toLocaleString(undefined, {
+                  maximumFractionDigits: 2,
+                })}
+              </strong>
+              <small>{currency}</small>
+            </div>
+          </div>
 
-            <Legend
-              verticalAlign="bottom"
-              height={45}
-              iconType="circle"
-              wrapperStyle={{
-                fontSize: 11,
-                color: "rgba(255,255,255,0.55)",
-              }}
-            />
-          </PieChart>
-        </ResponsiveContainer>
-      </div>
-
-      {/* CATEGORY TOTALS */}
-      <div style={categoryList}>
-        {chartData.map((item, index) => (
-          <div
-            key={item.name}
-            style={categoryRow}
-          >
-            <div style={categoryName}>
-              <span
-                style={{
-                  ...dot,
-                  background:
-                    COLORS[index % COLORS.length],
-                }}
-              />
-
-              {item.name}
+          <div className="gt-expense-chart-breakdown">
+            <div className="gt-expense-chart-breakdown-title">
+              <span>Categories</span>
+              <span>{chartData.length} total</span>
             </div>
 
-            <span style={categoryAmount}>
-              {baseCurrency}{" "}
-              {Number(item.value).toLocaleString()}
-            </span>
+            {chartData.map((item, index) => {
+              const percentage =
+                total > 0 ? (item.value / total) * 100 : 0;
+
+              return (
+                <div
+                  className="gt-expense-chart-source-row"
+                  key={item.name}
+                >
+                  <div className="gt-expense-chart-source-top">
+                    <span className="gt-expense-chart-source-name">
+                      <span
+                        className="gt-expense-chart-dot"
+                        style={{
+                          backgroundColor:
+                            COLORS[index % COLORS.length],
+                        }}
+                      />
+
+                      {item.name}
+                    </span>
+
+                    <strong>{percentage.toFixed(1)}%</strong>
+                  </div>
+
+                  <div className="gt-expense-chart-progress-track">
+                    <div
+                      className="gt-expense-chart-progress-fill"
+                      style={{
+                        width: `${percentage}%`,
+                        backgroundColor:
+                          COLORS[index % COLORS.length],
+                      }}
+                    />
+                  </div>
+
+                  <div className="gt-expense-chart-source-amount">
+                    {formatMoney(item.value, currency)}
+                  </div>
+                </div>
+              );
+            })}
           </div>
-        ))}
-      </div>
+        </>
+      )}
     </div>
   );
 }
-
-// ============================
-// STYLES
-// ============================
-
-const header = {
-  marginBottom: 10,
-};
-
-const title = {
-  margin: 0,
-  fontSize: 17,
-  color: "#fff",
-};
-
-const subtitle = {
-  margin: "5px 0 0",
-  fontSize: 11,
-  color: "rgba(255,255,255,0.3)",
-};
-
-const chartWrapper = {
-  width: "100%",
-  height: 300,
-};
-
-const categoryList = {
-  marginTop: 4,
-  borderTop: "1px solid rgba(255,255,255,0.05)",
-};
-
-const categoryRow = {
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "space-between",
-  padding: "10px 2px",
-  borderBottom: "1px solid rgba(255,255,255,0.04)",
-};
-
-const categoryName = {
-  display: "flex",
-  alignItems: "center",
-  gap: 8,
-  fontSize: 12,
-  color: "rgba(255,255,255,0.6)",
-};
-
-const dot = {
-  width: 7,
-  height: 7,
-  borderRadius: "50%",
-  display: "inline-block",
-};
-
-const categoryAmount = {
-  fontSize: 12,
-  color: "#e5e7eb",
-  fontWeight: 600,
-};
-
-const empty = {
-  height: 280,
-  display: "flex",
-  flexDirection: "column",
-  alignItems: "center",
-  justifyContent: "center",
-  textAlign: "center",
-};
-
-const emptyIcon = {
-  fontSize: 38,
-  color: "rgba(74,222,128,0.5)",
-  marginBottom: 8,
-};
-
-const emptyTitle = {
-  margin: 0,
-  fontSize: 14,
-  color: "rgba(255,255,255,0.5)",
-};
-
-const emptyText = {
-  margin: "7px 0 0",
-  maxWidth: 220,
-  fontSize: 11,
-  lineHeight: 1.5,
-  color: "rgba(255,255,255,0.25)",
-};

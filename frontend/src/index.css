@@ -113,3 +113,44 @@ code {
   padding: 4px 8px;
   background: var(--code-bg);
 }
+
+
+/* GreenTrack global layout overrides */
+
+html,
+body,
+#root {
+  min-height: 100%;
+  width: 100%;
+}
+
+body {
+  margin: 0;
+  background: #0a0f0d;
+}
+
+#root {
+  max-width: none;
+  margin: 0;
+  padding: 0;
+  text-align: left;
+  border: none;
+  display: block;
+  min-height: 100vh;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+option {
+  background: #111827;
+  color: #fff;
+}

@@ -1,3 +1,5 @@
+
+import { useMemo } from "react";
 import {
   PieChart,
   Pie,
@@ -6,138 +8,141 @@ import {
   ResponsiveContainer,
 } from "recharts";
 
+import { useCurrency } from "../../../context/CurrencyContext";
+
 const SOURCE_COLORS = {
-  Salary: "#22c55e",
-  Freelance: "#38bdf8",
-  Business: "#facc15",
-  Investment: "#f87171",
-  Other: "#a78bfa",
+  Salary: "#35b978",
+  Freelance: "#60a5fa",
+  Business: "#e5b85c",
+  Investment: "#c084fc",
+  Other: "#fb923c",
 };
 
 const DEFAULT_COLORS = [
-  "#22c55e",
-  "#38bdf8",
-  "#facc15",
-  "#f87171",
-  "#a78bfa",
+  "#35b978",
+  "#60a5fa",
+  "#e5b85c",
+  "#c084fc",
+  "#fb923c",
+  "#2dd4bf",
 ];
 
-export default function IncomeChart({
-  incomes,
-  baseCurrency = "LKR",
-  rates = {},
-}) {
-  // --------------------------------
-  // Convert amount to user's currency
-  // --------------------------------
-  const convertToBase = (amount, currency) => {
-    const numericAmount = Number(amount || 0);
-
-    // Same currency
-    if (currency === baseCurrency) {
-      return numericAmount;
-    }
-
-    const rate = rates[currency];
-
-    // Exchange rate not available
-    if (!rate) {
-      return 0;
-    }
-
-    // Frankfurter gives:
-    // 1 BASE = RATE SOURCE
-    //
-    // Therefore:
-    // SOURCE → BASE
-    // amount / rate
-
-    return numericAmount / Number(rate);
-  };
-
-  // --------------------------------
-  // Group income by source
-  // --------------------------------
-  const grouped = {};
-
-  incomes.forEach((income) => {
-    const key = income.source || "Other";
-
-    const convertedAmount = convertToBase(
-      income.amount,
-      income.currency
-    );
-
-    grouped[key] =
-      (grouped[key] || 0) + convertedAmount;
+const formatAmount = (value) =>
+  Number(value).toLocaleString(undefined, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
   });
 
-  // --------------------------------
-  // Calculate total
-  // --------------------------------
-  const total = Object.values(grouped).reduce(
-    (sum, value) => sum + value,
-    0
-  );
+function IncomeChartTooltip({ active, payload, currency }) {
+  if (!active || !payload?.length) return null;
 
-  // --------------------------------
-  // Create chart data
-  // --------------------------------
-  const data = Object.entries(grouped)
-    .map(([name, value]) => {
-      const percentage =
-        total > 0
-          ? (value / total) * 100
-          : 0;
-
-      return {
-        name,
-        value: Number(value.toFixed(2)),
-        percentage: Number(percentage.toFixed(1)),
-      };
-    })
-    .sort((a, b) => b.value - a.value);
-
-  // --------------------------------
-  // Get color for source
-  // --------------------------------
-  const getColor = (name, index) => {
-    return (
-      SOURCE_COLORS[name] ||
-      DEFAULT_COLORS[index % DEFAULT_COLORS.length]
-    );
-  };
+  const item = payload[0].payload;
 
   return (
-    <div>
-      {/* HEADER */}
-      <div style={chartHeader}>
-        <div>
-          <h3 style={chartTitle}>
-            Income Distribution
-          </h3>
+    <div className="gt-income-chart-tooltip">
+      <strong>{item.name}</strong>
+      <span>
+        {currency} {formatAmount(item.value)}
+      </span>
+      <small>{item.percentage.toFixed(1)}% of total</small>
+    </div>
+  );
+}
 
-          <p style={chartSubtitle}>
-            Breakdown by income source · {baseCurrency}
-          </p>
+export default function IncomeChart({
+  incomes = [],
+  baseCurrency,
+}) {
+  const {
+    currency: preferredCurrency,
+    convertAmount,
+    ratesLoading,
+    loading,
+  } = useCurrency();
+
+  const currency = preferredCurrency || baseCurrency || "LKR";
+  const isLoading = loading || ratesLoading;
+
+  const { data, total, missingRates } = useMemo(() => {
+    const grouped = {};
+    let missing = 0;
+
+    incomes.forEach((income) => {
+      const source = income.source || "Other";
+      const originalCurrency = income.currency || currency;
+
+      const converted = convertAmount(
+        income.amount,
+        originalCurrency
+      );
+
+      if (
+        converted == null ||
+        !Number.isFinite(Number(converted))
+      ) {
+        missing += 1;
+        return;
+      }
+
+      grouped[source] =
+        (grouped[source] || 0) + Number(converted);
+    });
+
+    const calculatedTotal = Object.values(grouped).reduce(
+      (sum, amount) => sum + amount,
+      0
+    );
+
+    const chartData = Object.entries(grouped)
+      .filter(([, value]) => value > 0)
+      .map(([name, value], index) => ({
+        name,
+        value,
+        percentage:
+          calculatedTotal > 0
+            ? (value / calculatedTotal) * 100
+            : 0,
+        color:
+          SOURCE_COLORS[name] ||
+          DEFAULT_COLORS[index % DEFAULT_COLORS.length],
+      }))
+      .sort((a, b) => b.value - a.value);
+
+    return {
+      data: chartData,
+      total: calculatedTotal,
+      missingRates: missing,
+    };
+  }, [incomes, convertAmount, currency]);
+
+  return (
+    <div className="gt-income-chart">
+      <div className="gt-income-chart-header">
+        <div>
+          <h3>Income Distribution</h3>
+          <p>Breakdown by income source · {currency}</p>
         </div>
       </div>
 
-      {/* NO DATA */}
-      {data.length === 0 ? (
-        <div style={noData}>
-          No chart data available
+      {isLoading ? (
+        <div className="gt-income-chart-empty">
+          Calculating distribution...
+        </div>
+      ) : data.length === 0 ? (
+        <div className="gt-income-chart-empty">
+          <span className="gt-income-chart-empty-icon">
+            ◌
+          </span>
+          <strong>No income data yet</strong>
+          <p>
+            Add income transactions to see how your
+            earnings are distributed.
+          </p>
         </div>
       ) : (
         <>
-          {/* PIE CHART */}
-          <div
-            style={{
-              width: "100%",
-              height: 250,
-            }}
-          >
-            <ResponsiveContainer>
+          <div className="gt-income-donut-wrapper">
+            <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie
                   data={data}
@@ -145,183 +150,96 @@ export default function IncomeChart({
                   nameKey="name"
                   cx="50%"
                   cy="50%"
-                  outerRadius={82}
-                  innerRadius={54}
+                  innerRadius={76}
+                  outerRadius={96}
                   paddingAngle={3}
+                  cornerRadius={5}
+                  stroke="none"
                 >
-                  {data.map((entry, index) => (
+                  {data.map((item) => (
                     <Cell
-                      key={`cell-${index}`}
-                      fill={getColor(
-                        entry.name,
-                        index
-                      )}
+                      key={item.name}
+                      fill={item.color}
                     />
                   ))}
                 </Pie>
 
-                {/* TOOLTIP */}
                 <Tooltip
-                  formatter={(value, name, props) => {
-                    const percentage =
-                      props.payload?.percentage || 0;
-
-                    return [
-                      `${baseCurrency} ${Number(
-                        value
-                      ).toLocaleString(undefined, {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2,
-                      })} (${percentage}%)`,
-                      name,
-                    ];
-                  }}
-                  contentStyle={{
-                    background: "#101814",
-                    border:
-                      "1px solid rgba(255,255,255,0.1)",
-                    borderRadius: 10,
-                    color: "#fff",
-                    boxShadow:
-                      "0 8px 25px rgba(0,0,0,0.3)",
-                  }}
-                  labelStyle={{
-                    color: "#fff",
-                  }}
+                  content={
+                    <IncomeChartTooltip currency={currency} />
+                  }
                 />
               </PieChart>
             </ResponsiveContainer>
+
+            <div className="gt-income-donut-center">
+              <span>Total income</span>
+              <strong>
+                {total.toLocaleString(undefined, {
+                  notation:
+                    total >= 1000000 ? "compact" : "standard",
+                  maximumFractionDigits:
+                    total >= 1000000 ? 1 : 0,
+                })}
+              </strong>
+              <small>{currency}</small>
+            </div>
           </div>
 
-          {/* SOURCE BREAKDOWN */}
-          <div style={breakdown}>
-            {data.map((item, index) => (
+          <div className="gt-income-chart-breakdown">
+            <div className="gt-income-chart-breakdown-title">
+              <span>Income sources</span>
+              <span>{data.length} categories</span>
+            </div>
+
+            {data.map((item) => (
               <div
                 key={item.name}
-                style={breakdownRow}
+                className="gt-income-chart-source-row"
               >
-                {/* LEFT */}
-                <div style={sourceInfo}>
-                  <span
-                    style={{
-                      ...colorDot,
-                      backgroundColor:
-                        getColor(
-                          item.name,
-                          index
-                        ),
-                    }}
-                  />
+                <div className="gt-income-chart-source-top">
+                  <div className="gt-income-chart-source-name">
+                    <span
+                      className="gt-income-chart-dot"
+                      style={{
+                        backgroundColor: item.color,
+                      }}
+                    />
 
-                  <span style={sourceName}>
-                    {item.name}
-                  </span>
+                    <span>{item.name}</span>
+                  </div>
+
+                  <strong>
+                    {item.percentage.toFixed(1)}%
+                  </strong>
                 </div>
 
-                {/* RIGHT */}
-                <div style={amountInfo}>
-                  <span style={amount}>
-                    {baseCurrency}{" "}
-                    {item.value.toLocaleString(
-                      undefined,
-                      {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2,
-                      }
-                    )}
-                  </span>
+                <div className="gt-income-chart-progress-track">
+                  <div
+                    className="gt-income-chart-progress-fill"
+                    style={{
+                      width: `${item.percentage}%`,
+                      backgroundColor: item.color,
+                    }}
+                  />
+                </div>
 
-                  <span style={percentage}>
-                    {item.percentage}%
-                  </span>
+                <div className="gt-income-chart-source-amount">
+                  {currency} {formatAmount(item.value)}
                 </div>
               </div>
             ))}
           </div>
+
+          {missingRates > 0 && (
+            <p className="gt-income-chart-rate-warning">
+              {missingRates} transaction
+              {missingRates === 1 ? " is" : "s are"} excluded
+              because exchange rates are unavailable.
+            </p>
+          )}
         </>
       )}
     </div>
   );
 }
-
-/* --------------------------------
-   STYLES
--------------------------------- */
-
-const chartHeader = {
-  marginBottom: 6,
-};
-
-const chartTitle = {
-  margin: 0,
-  fontSize: 17,
-  color: "#fff",
-};
-
-const chartSubtitle = {
-  margin: "5px 0 0",
-  fontSize: 12,
-  color: "rgba(255,255,255,0.35)",
-};
-
-const noData = {
-  height: 250,
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  color: "rgba(255,255,255,0.3)",
-  fontSize: 13,
-};
-
-const breakdown = {
-  marginTop: 4,
-  borderTop:
-    "1px solid rgba(255,255,255,0.06)",
-  paddingTop: 12,
-};
-
-const breakdownRow = {
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "space-between",
-  padding: "9px 0",
-  borderBottom:
-    "1px solid rgba(255,255,255,0.04)",
-};
-
-const sourceInfo = {
-  display: "flex",
-  alignItems: "center",
-  gap: 8,
-};
-
-const colorDot = {
-  width: 9,
-  height: 9,
-  borderRadius: "50%",
-  display: "inline-block",
-};
-
-const sourceName = {
-  fontSize: 12,
-  color: "#d1d5db",
-};
-
-const amountInfo = {
-  display: "flex",
-  alignItems: "center",
-  gap: 10,
-};
-
-const amount = {
-  fontSize: 11,
-  color: "#d1d5db",
-};
-
-const percentage = {
-  minWidth: 42,
-  textAlign: "right",
-  fontSize: 11,
-  fontWeight: 600,
-  color: "#4ade80",
-};

@@ -1,0 +1,264 @@
+
+/* =====================================
+   GREENTRACK DARK PROFILE MODAL
+   ===================================== */
+
+.gt-profile-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(0, 0, 0, 0.78);
+  backdrop-filter: blur(5px);
+}
+
+.gt-profile-modal {
+  width: 100%;
+  max-width: 470px;
+  max-height: calc(100dvh - 40px);
+  overflow-y: auto;
+  padding: 27px;
+  border-radius: 17px;
+  border: 1px solid #34443b;
+  background: #171e1b;
+  color: #f2f5f3;
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.5);
+  font-family: "DM Sans", "Segoe UI", sans-serif;
+  box-sizing: border-box;
+}
+
+/* Header */
+
+.gt-profile-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 15px;
+  padding-bottom: 20px;
+  margin-bottom: 22px;
+  border-bottom: 1px solid #28342d;
+}
+
+.gt-profile-modal-heading {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+}
+
+.gt-profile-modal-icon {
+  width: 43px;
+  height: 43px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  border-radius: 11px;
+  background: #24382b;
+  color: #8bd4ab;
+}
+
+.gt-profile-modal-heading h2 {
+  margin: 0;
+  color: #f2f5f3;
+  font-size: 19px;
+  font-weight: 700;
+}
+
+.gt-profile-modal-heading p {
+  margin: 5px 0 0;
+  color: #93a29a;
+  font-size: 11px;
+}
+
+.gt-profile-modal-close {
+  width: 33px;
+  height: 33px;
+  flex-shrink: 0;
+  border-radius: 9px;
+  border: 1px solid #34443b;
+  background: #202925;
+  color: #aebbb2;
+  font-size: 22px;
+  cursor: pointer;
+}
+
+.gt-profile-modal-close:hover:not(:disabled) {
+  background: #29372f;
+  color: #fff;
+}
+
+/* Form */
+
+.gt-profile-form {
+  display: flex;
+  flex-direction: column;
+  gap: 19px;
+}
+
+.gt-profile-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.gt-profile-field label {
+  color: #c6d1c9;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.gt-profile-field input,
+.gt-profile-field select {
+  width: 100%;
+  height: 44px;
+  padding: 0 13px;
+  box-sizing: border-box;
+  border: 1px solid #34443b;
+  border-radius: 9px;
+  outline: none;
+  background: #202925;
+  color: #f2f5f3;
+  font-family: inherit;
+  font-size: 13px;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.gt-profile-field input::placeholder {
+  color: #71877a;
+}
+
+.gt-profile-field input:focus,
+.gt-profile-field select:focus {
+  border-color: #35b978;
+  box-shadow: 0 0 0 3px rgba(53, 185, 120, 0.12);
+}
+
+.gt-profile-field input:disabled {
+  background: #1b231f;
+  color: #819187;
+  cursor: not-allowed;
+}
+
+.gt-profile-field select:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.gt-profile-field select option {
+  background: #202925;
+  color: #f2f5f3;
+}
+
+.gt-profile-field small {
+  color: #829589;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+/* Actions */
+
+.gt-profile-modal-actions {
+  display: flex;
+  gap: 11px;
+  padding-top: 20px;
+  margin-top: 4px;
+  border-top: 1px solid #28342d;
+}
+
+.gt-profile-cancel,
+.gt-profile-save {
+  flex: 1;
+  min-height: 43px;
+  border-radius: 9px;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 650;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.gt-profile-cancel {
+  border: 1px solid #34443b;
+  background: #202925;
+  color: #c6d1c9;
+}
+
+.gt-profile-cancel:hover:not(:disabled) {
+  background: #2a3730;
+}
+
+.gt-profile-save {
+  border: 1px solid #258457;
+  background: #258457;
+  color: white;
+}
+
+.gt-profile-save:hover:not(:disabled) {
+  background: #2c9965;
+}
+
+.gt-profile-save:disabled,
+.gt-profile-cancel:disabled,
+.gt-profile-modal-close:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* Feedback */
+
+.gt-profile-loading {
+  padding: 35px 0;
+  color: #93a29a;
+  text-align: center;
+  font-size: 13px;
+}
+
+.gt-profile-error,
+.gt-profile-success {
+  padding: 12px 14px;
+  border-radius: 9px;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.gt-profile-error {
+  background: rgba(248, 113, 113, 0.09);
+  border: 1px solid rgba(248, 113, 113, 0.2);
+  color: #fca5a5;
+}
+
+.gt-profile-success {
+  background: rgba(53, 185, 120, 0.1);
+  border: 1px solid rgba(53, 185, 120, 0.2);
+  color: #8bd4ab;
+}
+
+/* Accessibility */
+
+.gt-profile-modal button:focus-visible {
+  outline: 2px solid #35b978;
+  outline-offset: 2px;
+}
+
+/* Mobile */
+
+@media (max-width: 480px) {
+  .gt-profile-overlay {
+    padding: 12px;
+  }
+
+  .gt-profile-modal {
+    padding: 20px 17px;
+    max-height: calc(100dvh - 24px);
+  }
+
+  .gt-profile-modal-heading h2 {
+    font-size: 17px;
+  }
+
+  .gt-profile-modal-actions {
+    gap: 8px;
+  }
+}

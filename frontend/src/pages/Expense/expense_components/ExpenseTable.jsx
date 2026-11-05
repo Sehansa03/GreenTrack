@@ -1,13 +1,18 @@
+
 import { expenseAPI } from "../../../api/expense";
+import { useCurrency } from "../../../context/CurrencyContext";
 
 export default function ExpenseTable({
   expenses = [],
   setExpenses,
   onEdit,
 }) {
-  // ============================
-  // DELETE EXPENSE
-  // ============================
+  const {
+    currency: baseCurrency,
+    convertAmount,
+    ratesLoading,
+  } = useCurrency();
+
   const handleDelete = async (id) => {
     const confirmed = window.confirm(
       "Are you sure you want to delete this expense?"
@@ -31,18 +36,32 @@ export default function ExpenseTable({
     }
   };
 
-  // ============================
-  // EMPTY STATE
-  // ============================
+  const displayAmount = (expense) => {
+    if (ratesLoading) return "Converting...";
+
+    const converted = convertAmount(
+      expense.amount,
+      expense.currency || baseCurrency
+    );
+
+    if (converted === null || !Number.isFinite(Number(converted))) {
+      return "Rate unavailable";
+    }
+
+    return `- ${baseCurrency} ${Number(converted).toLocaleString(
+      undefined,
+      {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      }
+    )}`;
+  };
+
   if (expenses.length === 0) {
     return (
       <div style={empty}>
         <div style={emptyIcon}>📭</div>
-
-        <p style={emptyTitle}>
-          No expense records found
-        </p>
-
+        <p style={emptyTitle}>No expense records found</p>
         <p style={emptyText}>
           Add your first expense to start tracking your spending.
         </p>
@@ -57,7 +76,7 @@ export default function ExpenseTable({
           <tr>
             <th style={th}>AMOUNT</th>
             <th style={th}>CATEGORY</th>
-            <th style={th}>CURRENCY</th>
+            <th style={th}>ORIGINAL CURRENCY</th>
             <th style={th}>DATE</th>
             <th style={th}>ACTIONS</th>
           </tr>
@@ -66,15 +85,12 @@ export default function ExpenseTable({
         <tbody>
           {expenses.map((expense) => (
             <tr key={expense._id}>
-
-              {/* AMOUNT */}
               <td style={td}>
                 <span style={amount}>
-                  - {Number(expense.amount).toLocaleString()}
+                  {displayAmount(expense)}
                 </span>
               </td>
 
-              {/* CATEGORY */}
               <td style={td}>
                 <div style={categoryWrapper}>
                   <div style={categoryIcon}>
@@ -87,24 +103,20 @@ export default function ExpenseTable({
                 </div>
               </td>
 
-              {/* CURRENCY */}
               <td style={td}>
                 <span style={currencyBadge}>
-                  {expense.currency || "LKR"}
+                  {expense.currency || baseCurrency}
                 </span>
               </td>
 
-              {/* DATE */}
               <td style={td}>
                 {expense.date
                   ? new Date(expense.date).toLocaleDateString()
-                  : "-"}
+                  : "—"}
               </td>
 
-              {/* ACTIONS */}
               <td style={td}>
                 <div style={actions}>
-
                   <button
                     type="button"
                     style={editBtn}
@@ -120,10 +132,8 @@ export default function ExpenseTable({
                   >
                     Delete
                   </button>
-
                 </div>
               </td>
-
             </tr>
           ))}
         </tbody>
@@ -131,10 +141,6 @@ export default function ExpenseTable({
     </div>
   );
 }
-
-// ============================
-// CATEGORY ICON
-// ============================
 
 function getCategoryIcon(category) {
   const icons = {
@@ -150,10 +156,6 @@ function getCategoryIcon(category) {
 
   return icons[category] || "●";
 }
-
-// ============================
-// STYLES
-// ============================
 
 const wrapper = {
   width: "100%",
@@ -186,6 +188,7 @@ const td = {
 const amount = {
   color: "#f87171",
   fontWeight: 700,
+  whiteSpace: "nowrap",
 };
 
 const categoryWrapper = {

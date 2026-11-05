@@ -6,18 +6,25 @@ import ExpenseChart from "./expense_components/ExpenseChart";
 import ExpenseFilter from "./expense_components/ExpenseFilter";
 import ExpenseSummary from "./expense_components/ExpenseSummary";
 
+import { useCurrency } from "../../context/CurrencyContext";
 import { expenseAPI } from "../../api/expense";
-import { currencyAPI } from "../../api/currency";
-import { authAPI } from "../../api/auth";
 
 export default function Expense() {
   const [showModal, setShowModal] = useState(false);
   const [editData, setEditData] = useState(null);
   const [expenses, setExpenses] = useState([]);
 
-  const [baseCurrency, setBaseCurrency] = useState("LKR");
-  const [rates, setRates] = useState({});
-  const [currencyLoading, setCurrencyLoading] = useState(false);
+  // Global currency system
+  const {
+    currency: baseCurrency,
+    rates,
+    loading: profileLoading,
+    ratesLoading,
+    convertAmount: convertToBase,
+    hasRate,
+  } = useCurrency();
+
+  const currencyLoading = profileLoading || ratesLoading;
 
   const [filters, setFilters] = useState({
     category: "",
@@ -26,15 +33,13 @@ export default function Expense() {
     to: "",
   });
 
-  // ============================
-  // FETCH EXPENSES
-  // ============================
+  // Fetch expenses
   const fetchExpenses = async () => {
     try {
       const res = await expenseAPI.getAll();
       setExpenses(res.data.data || []);
     } catch (err) {
-      console.error("Failed to fetch expenses", err);
+      console.error("Failed to fetch expenses:", err);
     }
   };
 
@@ -42,73 +47,11 @@ export default function Expense() {
     fetchExpenses();
   }, []);
 
-  // ============================
-  // LOAD USER BASE CURRENCY
-  // ============================
-  useEffect(() => {
-    const loadUserCurrency = async () => {
-      try {
-        const res = await authAPI.getProfile();
-        const userCurrency = res.data.currency || "LKR";
-
-        setBaseCurrency(userCurrency);
-      } catch (error) {
-        console.error("Failed to load user currency:", error);
-      }
-    };
-
-    loadUserCurrency();
-  }, []);
-
-  // ============================
-  // LOAD EXCHANGE RATES
-  // ============================
-  useEffect(() => {
-    const loadRates = async () => {
-      if (!baseCurrency) return;
-
-      try {
-        setCurrencyLoading(true);
-
-        const res = await currencyAPI.getRates(baseCurrency);
-
-        setRates(res.data.rates || {});
-      } catch (error) {
-        console.error("Failed to load exchange rates:", error);
-      } finally {
-        setCurrencyLoading(false);
-      }
-    };
-
-    loadRates();
-  }, [baseCurrency]);
-
-  // ============================
-  // CONVERT TO BASE CURRENCY
-  // ============================
-  const convertToBase = (amount, currency) => {
-    const numericAmount = Number(amount || 0);
-
-    if (currency === baseCurrency) {
-      return numericAmount;
-    }
-
-    const rate = rates[currency];
-
-    if (!rate) {
-      return 0;
-    }
-
-    return numericAmount / Number(rate);
-  };
-
-  // ============================
-  // FILTER EXPENSES
-  // ============================
+  // Filter expenses
   const filteredExpenses = useMemo(() => {
     return expenses.filter((expense) => {
-      const categoryMatch = expense.category
-        ?.toLowerCase()
+      const categoryMatch = (expense.category || "")
+        .toLowerCase()
         .includes(filters.category.toLowerCase());
 
       const currencyMatch =
@@ -116,16 +59,14 @@ export default function Expense() {
         expense.currency === filters.currency;
 
       const expenseDate = expense.date
-        ? new Date(expense.date)
-        : null;
+        ? String(expense.date).slice(0, 10)
+        : "";
 
       const fromMatch =
-        !filters.from ||
-        (expenseDate && expenseDate >= new Date(filters.from));
+        !filters.from || expenseDate >= filters.from;
 
       const toMatch =
-        !filters.to ||
-        (expenseDate && expenseDate <= new Date(filters.to));
+        !filters.to || expenseDate <= filters.to;
 
       return (
         categoryMatch &&
@@ -136,38 +77,38 @@ export default function Expense() {
     });
   }, [expenses, filters]);
 
-  // ============================
-  // TOTAL EXPENSE
-  // ============================
-  const totalExpense = filteredExpenses.reduce(
-    (sum, expense) =>
-      sum + convertToBase(expense.amount, expense.currency),
-    0
-  );
+  // Calculate total in preferred currency
+  const totalExpense = useMemo(() => {
+    return filteredExpenses.reduce((sum, expense) => {
+      const convertedAmount = convertToBase(
+        expense.amount,
+        expense.currency
+      );
 
-  const roundedTotal =
-    Math.round(totalExpense * 100) / 100;
+      return sum + (convertedAmount ?? 0);
+    }, 0);
+  }, [filteredExpenses, convertToBase]);
 
-  // ============================
-  // EDIT EXPENSE
-  // ============================
+  const roundedTotal = Math.round(totalExpense * 100) / 100;
+
+  // Count transactions with unavailable conversion rates
+  const unavailableRateCount = useMemo(() => {
+    return filteredExpenses.filter(
+      (expense) => !hasRate(expense.currency)
+    ).length;
+  }, [filteredExpenses, hasRate]);
+
   const handleEdit = (expense) => {
     setEditData(expense);
     setShowModal(true);
   };
 
-  // ============================
-  // CLOSE MODAL
-  // ============================
   const handleClose = () => {
     setShowModal(false);
     setEditData(null);
     fetchExpenses();
   };
 
-  // ============================
-  // CLEAR FILTERS
-  // ============================
   const handleClearFilters = () => {
     setFilters({
       category: "",
@@ -179,7 +120,6 @@ export default function Expense() {
 
   return (
     <div style={page}>
-
       {/* HEADER */}
       <div style={header}>
         <div>
@@ -193,6 +133,7 @@ export default function Expense() {
         </div>
 
         <button
+          type="button"
           style={addBtn}
           onClick={() => {
             setEditData(null);
@@ -212,13 +153,31 @@ export default function Expense() {
         loading={currencyLoading}
       />
 
+      {/* EXCHANGE RATE WARNING */}
+      {!currencyLoading && unavailableRateCount > 0 && (
+        <div style={warningCard}>
+          <span style={{ fontSize: 18 }}>⚠</span>
+
+          <div>
+            <strong>Some exchange rates are unavailable</strong>
+
+            <p style={warningText}>
+              {unavailableRateCount} expense
+              {unavailableRateCount === 1
+                ? " record cannot"
+                : " records cannot"}{" "}
+              currently be converted to {baseCurrency}.
+              The total shown is incomplete.
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* FILTERS */}
       <div style={filterCard}>
         <div style={filterHeader}>
           <div>
-            <h3 style={filterTitle}>
-              Expense Records
-            </h3>
+            <h3 style={filterTitle}>Expense Records</h3>
 
             <p style={filterSubtitle}>
               Filter and manage your expense transactions
@@ -237,9 +196,9 @@ export default function Expense() {
         />
       </div>
 
-      {/* TABLE + CHART */}
+      {/* DASHBOARD GRID */}
       <div style={dashboardGrid}>
-
+        {/* TABLE */}
         <div style={tableCard}>
           <ExpenseTable
             expenses={filteredExpenses}
@@ -248,6 +207,7 @@ export default function Expense() {
           />
         </div>
 
+        {/* CHART */}
         <div style={chartCard}>
           <ExpenseChart
             expenses={filteredExpenses}
@@ -255,24 +215,20 @@ export default function Expense() {
             rates={rates}
           />
         </div>
-
       </div>
 
-      {/* EXPENSE FORM MODAL */}
+      {/* MODAL */}
       {showModal && (
         <ExpenseForm
           onClose={handleClose}
           editData={editData}
         />
       )}
-
     </div>
   );
 }
 
-// ============================
-// STYLES
-// ============================
+/* ---------- STYLES ---------- */
 
 const page = {
   padding: "32px 36px",
@@ -285,6 +241,8 @@ const header = {
   display: "flex",
   justifyContent: "space-between",
   alignItems: "center",
+  gap: 20,
+  flexWrap: "wrap",
   marginBottom: 30,
 };
 
@@ -307,6 +265,7 @@ const subtitle = {
   color: "rgba(255,255,255,0.4)",
   marginTop: 8,
   fontSize: 14,
+  lineHeight: 1.6,
 };
 
 const addBtn = {
@@ -323,6 +282,25 @@ const addBtn = {
   boxShadow: "0 8px 20px rgba(34,197,94,0.15)",
 };
 
+const warningCard = {
+  display: "flex",
+  alignItems: "flex-start",
+  gap: 12,
+  background: "rgba(245,158,11,0.08)",
+  border: "1px solid rgba(245,158,11,0.25)",
+  color: "#fbbf24",
+  borderRadius: 12,
+  padding: "14px 18px",
+  marginBottom: 22,
+  fontSize: 13,
+};
+
+const warningText = {
+  margin: "5px 0 0",
+  lineHeight: 1.6,
+  color: "#d6c5a2",
+};
+
 const filterCard = {
   background: "#101814",
   border: "1px solid rgba(255,255,255,0.06)",
@@ -335,6 +313,8 @@ const filterHeader = {
   display: "flex",
   justifyContent: "space-between",
   alignItems: "center",
+  gap: 12,
+  flexWrap: "wrap",
   marginBottom: 20,
 };
 
@@ -356,11 +336,12 @@ const recordBadge = {
   padding: "6px 10px",
   borderRadius: 20,
   fontSize: 12,
+  whiteSpace: "nowrap",
 };
 
 const dashboardGrid = {
   display: "grid",
-  gridTemplateColumns: "minmax(0, 1fr) 330px",
+  gridTemplateColumns: "minmax(0, 1fr) minmax(280px, 330px)",
   gap: 22,
   alignItems: "start",
 };
@@ -371,6 +352,7 @@ const tableCard = {
   borderRadius: 16,
   padding: 20,
   overflow: "hidden",
+  minWidth: 0,
 };
 
 const chartCard = {
@@ -378,4 +360,5 @@ const chartCard = {
   border: "1px solid rgba(255,255,255,0.06)",
   borderRadius: 16,
   padding: 20,
+  minWidth: 0,
 };

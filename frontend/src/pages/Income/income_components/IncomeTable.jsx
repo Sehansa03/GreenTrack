@@ -1,10 +1,18 @@
+
 import { incomeAPI } from "../../../api/income";
+import { useCurrency } from "../../../context/CurrencyContext";
 
 export default function IncomeTable({
-  incomes,
+  incomes = [],
   setIncomes,
   onEdit,
 }) {
+  const {
+    currency: baseCurrency,
+    convertAmount,
+    ratesLoading,
+  } = useCurrency();
+
   const handleDelete = async (id) => {
     try {
       await incomeAPI.delete(id);
@@ -14,7 +22,29 @@ export default function IncomeTable({
       );
     } catch (err) {
       console.error("Delete failed", err);
+      alert("Failed to delete income.");
     }
+  };
+
+  const displayAmount = (income) => {
+    if (ratesLoading) return "Converting...";
+
+    const converted = convertAmount(
+      income.amount,
+      income.currency || baseCurrency
+    );
+
+    if (converted === null || !Number.isFinite(Number(converted))) {
+      return "Rate unavailable";
+    }
+
+    return `+ ${baseCurrency} ${Number(converted).toLocaleString(
+      undefined,
+      {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      }
+    )}`;
   };
 
   return (
@@ -24,7 +54,7 @@ export default function IncomeTable({
           <tr>
             <th style={th}>AMOUNT</th>
             <th style={th}>SOURCE</th>
-            <th style={th}>CURRENCY</th>
+            <th style={th}>ORIGINAL CURRENCY</th>
             <th style={th}>DATE</th>
             <th style={th}>ACTIONS</th>
           </tr>
@@ -33,8 +63,10 @@ export default function IncomeTable({
         <tbody>
           {incomes.length === 0 ? (
             <tr>
-              <td colSpan="5" style={empty}>
-                <div style={{ fontSize: 32, marginBottom: 10 }}>📭</div>
+              <td colSpan={5} style={empty}>
+                <div style={{ fontSize: 32, marginBottom: 10 }}>
+                  📭
+                </div>
                 No income records found
                 <p style={{ fontSize: 12, opacity: 0.5 }}>
                   Try changing your filters or add a new income.
@@ -44,10 +76,9 @@ export default function IncomeTable({
           ) : (
             incomes.map((income) => (
               <tr key={income._id} style={row}>
-
                 <td style={td}>
                   <span style={amount}>
-                    + {Number(income.amount).toLocaleString()}
+                    {displayAmount(income)}
                   </span>
                 </td>
 
@@ -60,7 +91,7 @@ export default function IncomeTable({
 
                 <td style={td}>
                   <span style={currencyBadge}>
-                    {income.currency}
+                    {income.currency || baseCurrency}
                   </span>
                 </td>
 
@@ -73,6 +104,7 @@ export default function IncomeTable({
                 <td style={td}>
                   <div style={{ display: "flex", gap: 8 }}>
                     <button
+                      type="button"
                       style={editBtn}
                       onClick={() => onEdit(income)}
                     >
@@ -80,6 +112,7 @@ export default function IncomeTable({
                     </button>
 
                     <button
+                      type="button"
                       style={deleteBtn}
                       onClick={() => handleDelete(income._id)}
                     >
@@ -87,7 +120,6 @@ export default function IncomeTable({
                     </button>
                   </div>
                 </td>
-
               </tr>
             ))
           )}
@@ -110,12 +142,14 @@ const th = {
   letterSpacing: "1px",
   color: "rgba(255,255,255,0.3)",
   borderBottom: "1px solid rgba(255,255,255,0.06)",
+  whiteSpace: "nowrap",
 };
 
 const td = {
   padding: "16px 12px",
   borderBottom: "1px solid rgba(255,255,255,0.04)",
   color: "rgba(255,255,255,0.65)",
+  whiteSpace: "nowrap",
 };
 
 const row = {
@@ -125,6 +159,7 @@ const row = {
 const amount = {
   color: "#4ade80",
   fontWeight: 700,
+  whiteSpace: "nowrap",
 };
 
 const sourceWrapper = {

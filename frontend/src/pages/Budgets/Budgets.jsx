@@ -1,146 +1,88 @@
-import { useEffect, useState } from "react";
 
+import { useEffect, useState } from "react";
 import { budgetAPI } from "../../api/budget";
 import { useCurrency } from "../../context/CurrencyContext";
 import BudgetForm from "./budget_components/BudgetForm";
+import "./Budgets.css";
+
+const months = [
+  "January", "February", "March", "April",
+  "May", "June", "July", "August",
+  "September", "October", "November", "December",
+];
+
+const formatMoney = (value, currency) => {
+  if (value == null || !Number.isFinite(Number(value))) {
+    return "Rate unavailable";
+  }
+
+  return `${currency} ${Number(value).toLocaleString("en-US", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
+};
 
 export default function Budgets() {
   const [budgets, setBudgets] = useState([]);
-  const { currency: baseCurrency, loading: currencyLoading, ratesLoading } = useCurrency();
-  const [error, setError] = useState("");
-
   const [budgetType, setBudgetType] = useState("monthly");
-
   const [selectedYear, setSelectedYear] = useState(
     new Date().getFullYear()
   );
-
   const [selectedMonth, setSelectedMonth] = useState(
     new Date().getMonth() + 1
   );
 
   const [loading, setLoading] = useState(true);
-
+  const [error, setError] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [editData, setEditData] = useState(null);
-
   const [deleteData, setDeleteData] = useState(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
 
-  // ========================================
-  // LOAD BUDGETS
-  // ========================================
-
-  useEffect(() => {
-    loadBudgets();
-  }, [baseCurrency]);
+  const {
+    currency: baseCurrency,
+    loading: currencyLoading,
+    ratesLoading,
+  } = useCurrency();
 
   const loadBudgets = async () => {
     try {
       setLoading(true);
-
       setError("");
-      const budgetRes = await budgetAPI.getAll();
 
-      setBudgets(
-        budgetRes.data.data || []
+      const res = await budgetAPI.getAll();
+      const payload = res.data?.data ?? res.data;
+
+      setBudgets(Array.isArray(payload) ? payload : []);
+    } catch (err) {
+      console.error("Failed to load budgets:", err);
+      setError(
+        err.response?.data?.message ||
+          "Failed to load budgets."
       );
-
-
-
-    } catch (error) {
-      console.error("Failed to load budgets:", error);
-      setError(error.response?.data?.message || "Failed to load budgets.");
     } finally {
       setLoading(false);
     }
   };
 
-  // ========================================
-  // EDIT BUDGET
-  // ========================================
+  useEffect(() => {
+    loadBudgets();
+  }, [baseCurrency]);
 
-  const handleEdit = (budget) => {
-    setEditData(budget);
-    setShowForm(true);
-  };
+  const filteredBudgets = budgets.filter((budget) => {
+    if (budget.budgetType !== budgetType) return false;
+    if (Number(budget.year) !== selectedYear) return false;
 
-  // ========================================
-  // DELETE BUDGET
-  // ========================================
-
-  const handleDelete = (id) => {
-    setDeleteData(id);
-  };
-
-  const confirmDelete = async () => {
-    if (!deleteData) {
-      return;
+    if (
+      budgetType === "monthly" &&
+      Number(budget.month) !== selectedMonth
+    ) {
+      return false;
     }
 
-    try {
-      setDeleteLoading(true);
+    return true;
+  });
 
-      await budgetAPI.delete(deleteData);
-
-      setDeleteData(null);
-
-      await loadBudgets();
-
-    } catch (error) {
-      console.error(
-        "Failed to delete budget:",
-        error
-      );
-
-      alert(
-        error.response?.data?.message ||
-          "Failed to delete budget."
-      );
-
-    } finally {
-      setDeleteLoading(false);
-    }
-  };
-
-  // ========================================
-  // FILTER BUDGETS
-  // ========================================
-
-  const filteredBudgets = budgets.filter(
-    (budget) => {
-
-      if (
-        budget.budgetType !==
-        budgetType
-      ) {
-        return false;
-      }
-
-      if (
-        Number(budget.year) !==
-        Number(selectedYear)
-      ) {
-        return false;
-      }
-
-      if (
-        budgetType === "monthly" &&
-        Number(budget.month) !==
-          Number(selectedMonth)
-      ) {
-        return false;
-      }
-
-      return true;
-    }
-  );
-
-  // ========================================
-  // SUMMARY
-  // ========================================
-
-  // All summary values must use converted amounts, not stored amounts.
   const incomplete = filteredBudgets.some(
     (budget) =>
       budget.conversionUnavailable === true ||
@@ -149,7 +91,8 @@ export default function Budgets() {
   );
 
   const totalBudget = filteredBudgets.reduce(
-    (sum, budget) => sum + Number(budget.convertedAmount ?? 0),
+    (sum, budget) =>
+      sum + Number(budget.convertedAmount ?? 0),
     0
   );
 
@@ -158,1106 +101,500 @@ export default function Budgets() {
     0
   );
 
-  const totalRemaining = Math.max(totalBudget - totalSpent, 0);
+  const totalRemaining = totalBudget - totalSpent;
+
   const totalPercentage =
-    totalBudget > 0 ? (totalSpent / totalBudget) * 100 : 0;
+    totalBudget > 0
+      ? (totalSpent / totalBudget) * 100
+      : 0;
+
+  const busy = loading || currencyLoading || ratesLoading;
+
+  const years = [
+    ...new Set([
+      selectedYear,
+      new Date().getFullYear() - 1,
+      new Date().getFullYear(),
+      new Date().getFullYear() + 1,
+      new Date().getFullYear() + 2,
+      ...budgets.map((budget) => Number(budget.year)),
+    ]),
+  ]
+    .filter(Number.isFinite)
+    .sort((a, b) => b - a);
+
+  const openCreate = () => {
+    setEditData(null);
+    setShowForm(true);
+  };
+
+  const closeForm = () => {
+    setShowForm(false);
+    setEditData(null);
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteData) return;
+
+    try {
+      setDeleteLoading(true);
+      await budgetAPI.delete(deleteData._id);
+      setDeleteData(null);
+      await loadBudgets();
+    } catch (err) {
+      console.error("Failed to delete budget:", err);
+      setError(
+        err.response?.data?.message ||
+          "Failed to delete budget."
+      );
+    } finally {
+      setDeleteLoading(false);
+    }
+  };
 
   return (
-    <div style={page}>
-
-      {/* ========================================
-          HEADER
-      ======================================== */}
-
-      <div style={header}>
-
+    <main className="gt-budget-page">
+      {/* HEADER */}
+      <header className="gt-budget-header">
         <div>
-          <p style={eyebrow}>
-            FINANCIAL PLANNING
+          <p className="gt-budget-eyebrow">
+            YOUR FINANCES / BUDGETS
           </p>
 
-          <h1 style={title}>
-            Budgets
-          </h1>
+          <h1>Budgets</h1>
 
-          <p style={subtitle}>
+          <p className="gt-budget-subtitle">
             Plan your spending and stay within your limits.
           </p>
         </div>
 
-        {/* ADD BUDGET BUTTON */}
-
         <button
-          style={addButton}
-          onClick={() => {
-            setEditData(null);
-            setShowForm(true);
-          }}
+          type="button"
+          className="gt-budget-primary-btn"
+          onClick={openCreate}
         >
-          <span style={plusIcon}>
-            +
-          </span>
-
+          <span aria-hidden="true">+</span>
           Add Budget
         </button>
+      </header>
 
-      </div>
-
-
-      {/* ========================================
-          BUDGET TYPE + FILTERS
-      ======================================== */}
-
-      <div style={controls}>
-
-        <div style={tabs}>
-
-          <button
-            style={{
-              ...tab,
-              ...(budgetType === "monthly"
-                ? activeTab
-                : {}),
-            }}
-            onClick={() =>
-              setBudgetType("monthly")
-            }
-          >
-            Monthly
-          </button>
-
-          <button
-            style={{
-              ...tab,
-              ...(budgetType === "yearly"
-                ? activeTab
-                : {}),
-            }}
-            onClick={() =>
-              setBudgetType("yearly")
-            }
-          >
-            Yearly
-          </button>
-
+      {/* FILTERS */}
+      <div className="gt-budget-toolbar">
+        <div className="gt-budget-tabs">
+          {["monthly", "yearly"].map((type) => (
+            <button
+              key={type}
+              type="button"
+              className={budgetType === type ? "active" : ""}
+              onClick={() => setBudgetType(type)}
+            >
+              {type === "monthly" ? "Monthly" : "Yearly"}
+            </button>
+          ))}
         </div>
 
-
-        <div style={selectors}>
-
+        <div className="gt-budget-filters">
           {budgetType === "monthly" && (
             <select
+              aria-label="Select month"
               value={selectedMonth}
               onChange={(e) =>
-                setSelectedMonth(
-                  Number(e.target.value)
-                )
+                setSelectedMonth(Number(e.target.value))
               }
-              style={select}
             >
-              {months.map((month) => (
-                <option
-                  key={month.value}
-                  value={month.value}
-                >
-                  {month.label}
+              {months.map((month, index) => (
+                <option key={month} value={index + 1}>
+                  {month}
                 </option>
               ))}
             </select>
           )}
 
-
           <select
+            aria-label="Select year"
             value={selectedYear}
             onChange={(e) =>
-              setSelectedYear(
-                Number(e.target.value)
-              )
+              setSelectedYear(Number(e.target.value))
             }
-            style={select}
           >
             {years.map((year) => (
-              <option
-                key={year}
-                value={year}
-              >
+              <option key={year} value={year}>
                 {year}
               </option>
             ))}
           </select>
-
         </div>
-
       </div>
 
-
-      {/* ========================================
-          SUMMARY
-      ======================================== */}
-
-      {error && <div style={{ color: "#fca5a5", marginBottom: 16 }}>{error}</div>}
-      {incomplete && !loading && !currencyLoading && !ratesLoading && (
-        <div style={{ color: "#fbbf24", marginBottom: 16 }}>
-          Some exchange rates are unavailable. Totals and usage are hidden until conversion is available.
+      {/* ALERTS */}
+      {error && (
+        <div className="gt-budget-error" role="alert">
+          {error}
+          <button
+            type="button"
+            onClick={loadBudgets}
+          >
+            Retry
+          </button>
         </div>
       )}
-      <div style={summaryGrid}>
 
+      {incomplete && !busy && (
+        <div className="gt-budget-warning">
+          <span>!</span>
+          <div>
+            <strong>Exchange rate unavailable</strong>
+            <p>
+              Some budget values cannot be converted.
+              Totals are hidden until conversion is available.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* SUMMARY */}
+      <div className="gt-budget-summary-grid">
         <SummaryCard
           label="Total Budget"
-          value={incomplete ? "Rate unavailable" : totalBudget}
-          currency={baseCurrency}
+          icon="◎"
+          value={
+            busy
+              ? "Loading..."
+              : incomplete
+              ? "Rate unavailable"
+              : formatMoney(totalBudget, baseCurrency)
+          }
+          description="Your planned spending limit"
         />
 
         <SummaryCard
           label="Total Spent"
-          value={incomplete ? "Rate unavailable" : totalSpent}
-          currency={baseCurrency}
+          icon="↗"
+          value={
+            busy
+              ? "Loading..."
+              : incomplete
+              ? "Rate unavailable"
+              : formatMoney(totalSpent, baseCurrency)
+          }
+          description="Amount spent in this period"
         />
 
         <SummaryCard
           label="Remaining"
-          value={incomplete ? "Rate unavailable" : totalRemaining}
-          currency={baseCurrency}
+          icon="↘"
+          value={
+            busy
+              ? "Loading..."
+              : incomplete
+              ? "Rate unavailable"
+              : formatMoney(totalRemaining, baseCurrency)
+          }
+          description="Available budget balance"
+          tone={
+            !busy && !incomplete && totalRemaining < 0
+              ? "danger"
+              : "success"
+          }
         />
 
         <SummaryCard
           label="Budget Used"
-          value={incomplete ? "Rate unavailable" : `${totalPercentage.toFixed(1)}%`}
-          currency=""
+          icon="%"
+          value={
+            busy
+              ? "Loading..."
+              : incomplete
+              ? "Rate unavailable"
+              : `${totalPercentage.toFixed(1)}%`
+          }
+          description="Overall budget utilization"
+          tone={
+            !busy && !incomplete && totalPercentage > 100
+              ? "danger"
+              : "default"
+          }
         />
-
       </div>
 
-
-      {/* ========================================
-          BUDGET AREA
-      ======================================== */}
-
-      <div style={section}>
-
-        <div style={sectionHeader}>
-
+      {/* BUDGET PANEL */}
+      <section className="gt-budget-panel">
+        <div className="gt-budget-section-heading">
           <div>
-
-            <h2 style={sectionTitle}>
+            <h2>
               {budgetType === "monthly"
                 ? "Monthly Budgets"
                 : "Yearly Budgets"}
             </h2>
 
-            <p style={sectionSubtitle}>
+            <p>
               {budgetType === "monthly"
-                ? `${months[selectedMonth - 1].label} ${selectedYear}`
+                ? `${months[selectedMonth - 1]} ${selectedYear}`
                 : `Year ${selectedYear}`}
+              {" · "}
+              {filteredBudgets.length} categories
             </p>
-
           </div>
-
         </div>
 
-
-        {/* LOADING */}
-
-        {loading || currencyLoading || ratesLoading ? (
-
-          <div style={emptyState}>
+        {busy ? (
+          <div className="gt-budget-loading">
             Loading budgets...
           </div>
-
-
         ) : filteredBudgets.length === 0 ? (
-
-          /* ========================================
-             EMPTY STATE
-          ======================================== */
-
-          <div style={emptyState}>
-
-            <div style={emptyIcon}>
-              ◌
-            </div>
-
-            <h3 style={emptyTitle}>
-              No budgets yet
-            </h3>
-
-            <p style={emptyDescription}>
+          <div className="gt-budget-empty">
+            <span className="gt-budget-empty-icon">◎</span>
+            <strong>No budgets for this period</strong>
+            <p>
               Create a budget to start planning your spending.
             </p>
 
             <button
-              style={emptyButton}
-              onClick={() => {
-                setEditData(null);
-                setShowForm(true);
-              }}
+              type="button"
+              className="gt-budget-primary-btn"
+              onClick={openCreate}
             >
-              + Create Budget
+              <span aria-hidden="true">+</span>
+              Create Budget
             </button>
-
           </div>
-
-
         ) : (
+          <div className="gt-budget-grid">
+            {filteredBudgets.map((budget) => {
+              const unavailable =
+                budget.conversionUnavailable === true ||
+                budget.convertedAmount == null ||
+                budget.spent == null ||
+                budget.percentage == null;
 
-          /* ========================================
-             BUDGET CARDS
-          ======================================== */
+              const used = unavailable
+                ? 0
+                : Number(budget.percentage);
 
-          <div style={budgetGrid}>
+              const status = unavailable
+                ? "unavailable"
+                : budget.status === "over" || used > 100
+                ? "over"
+                : budget.status === "warning" || used >= 80
+                ? "warning"
+                : "ontrack";
 
-            {filteredBudgets.map(
-              (budget) => (
+              const remainingAmount = unavailable
+                ? null
+                : budget.remaining == null
+                ? Number(budget.convertedAmount) -
+                  Number(budget.spent)
+                : Number(budget.remaining);
 
-                <div
+              return (
+                <article
+                  className="gt-budget-card"
                   key={budget._id}
-                  style={budgetCard}
                 >
+                  <div className="gt-budget-card-top">
+                    <h3>{budget.category}</h3>
 
-                  {/* CARD HEADER */}
-
-                  <div style={cardHeader}>
-
-                    <h3
-                      style={{
-                        margin: 0,
-                        color: "#fff",
-                        fontSize: 15,
-                        fontWeight: 600,
-                      }}
-                    >
-                      {budget.category}
-                    </h3>
-
-
-                    {/* ACTION ICONS */}
-
-                    <div style={actionIcons}>
-
+                    <div className="gt-budget-actions">
                       <button
                         type="button"
-                        onClick={() =>
-                          handleEdit(budget)
-                        }
-                        style={editIconButton}
                         title="Edit budget"
-                        aria-label="Edit budget"
+                        aria-label={`Edit ${budget.category}`}
+                        onClick={() => {
+                          setEditData(budget);
+                          setShowForm(true);
+                        }}
                       >
                         ✎
                       </button>
 
                       <button
                         type="button"
-                        onClick={() =>
-                          handleDelete(
-                            budget._id
-                          )
-                        }
-                        style={deleteIconButton}
+                        className="delete"
                         title="Delete budget"
-                        aria-label="Delete budget"
+                        aria-label={`Delete ${budget.category}`}
+                        onClick={() => setDeleteData(budget)}
                       >
-                        🗑
+                        ×
                       </button>
-
                     </div>
-
                   </div>
 
+                  <span className="gt-budget-label">
+                    Budget Limit
+                  </span>
 
-                  {/* BUDGET AMOUNT */}
-
-                  <div
-                    style={{
-                      marginTop: 18,
-                    }}
-                  >
-
-                    <span style={cardLabel}>
-                      Budget
-                    </span>
-
-                    <p style={budgetAmount}>
-                        {budget.convertedAmount == null ? "Rate unavailable" : `${baseCurrency} ${Number(budget.convertedAmount ?? 0).toLocaleString(undefined, { maximumFractionDigits: 2 })}`}
-                      </p>
-
+                  <div className="gt-budget-main-amount">
+                    {unavailable
+                      ? "Rate unavailable"
+                      : formatMoney(
+                          budget.convertedAmount,
+                          baseCurrency
+                        )}
                   </div>
 
-
-                  {/* SPENT + REMAINING */}
-
-                  <div style={financialStats}>
-
+                  <div className="gt-budget-card-stats">
                     <div>
-
-                      <span style={cardLabel}>
+                      <span className="gt-budget-label">
                         Spent
                       </span>
 
-                      <p style={spentValue}>
-                        {budget.spent == null ? "Rate unavailable" : `${baseCurrency} ${Number(budget.spent ?? 0).toLocaleString(undefined, { maximumFractionDigits: 2 })}`}
-                      </p>
-
+                      <strong>
+                        {unavailable
+                          ? "—"
+                          : formatMoney(
+                              budget.spent,
+                              baseCurrency
+                            )}
+                      </strong>
                     </div>
 
-
-                    <div
-                      style={{
-                        textAlign: "right",
-                      }}
-                    >
-
-                      <span style={cardLabel}>
+                    <div>
+                      <span className="gt-budget-label">
                         Remaining
                       </span>
 
-                      <p style={remainingValue}>
-                        {budget.remaining == null ? "Rate unavailable" : `${baseCurrency} ${Number(budget.remaining ?? 0).toLocaleString(undefined, { maximumFractionDigits: 2 })}`}
-                      </p>
-
+                      <strong
+                        className={
+                          remainingAmount < 0
+                            ? "negative"
+                            : "positive"
+                        }
+                      >
+                        {unavailable
+                          ? "—"
+                          : formatMoney(
+                              remainingAmount,
+                              baseCurrency
+                            )}
+                      </strong>
                     </div>
-
                   </div>
 
-
-                  {/* USAGE */}
-
-                  <div style={usageHeader}>
-
-                    <span
-                      style={{
-                        color:
-                          budget.status ===
-                          "over"
-                            ? "#f87171"
-                            : budget.status ===
-                              "warning"
-                            ? "#fbbf24"
-                            : "#4ade80",
-                        fontSize: 11,
-                        fontWeight: 600,
-                      }}
-                    >
-                      {budget.percentage == null ? "Rate unavailable" : `${Number(budget.percentage ?? 0).toFixed(1)}% used`}
+                  <div className="gt-budget-progress-heading">
+                    <span>
+                      {unavailable
+                        ? "Rate unavailable"
+                        : `${used.toFixed(1)}% used`}
                     </span>
 
                     <span
-                      style={usageStatus}
+                      className={`gt-budget-status ${status}`}
                     >
-                      {budget.status ===
-                      "over"
+                      {status === "over"
                         ? "Over budget"
-                        : budget.status ===
-                          "warning"
+                        : status === "warning"
                         ? "Near limit"
-                        : budget.status === "unavailable" ? "Rate unavailable" : "On track"}
+                        : status === "unavailable"
+                        ? "Unavailable"
+                        : "On track"}
                     </span>
-
                   </div>
 
-
-                  {/* PROGRESS BAR */}
-
-                  <div
-                    style={
-                      progressBackground
-                    }
-                  >
-
+                  <div className="gt-budget-progress-track">
                     <div
+                      className={`gt-budget-progress-fill ${status}`}
                       style={{
-                        ...progressBar,
-                        width: `${Math.min(Number(budget.percentage ?? 0), 100)}%`,
-                        background:
-                          budget.status ===
-                          "over"
-                            ? "#f87171"
-                            : budget.status ===
-                              "warning"
-                            ? "#fbbf24"
-                            : "#4ade80",
+                        width: `${
+                          Math.min(100, Math.max(0, used))
+                        }%`,
                       }}
                     />
-
                   </div>
-
-                </div>
-
-              )
-            )}
-
+                </article>
+              );
+            })}
           </div>
-
         )}
+      </section>
 
-      </div>
-
-
-      {/* ========================================
-          BUDGET FORM
-      ======================================== */}
-
+      {/* ADD / EDIT FORM */}
       {showForm && (
         <BudgetForm
           editData={editData}
-          onClose={() => {
-            setShowForm(false);
-            setEditData(null);
-          }}
+          onClose={closeForm}
           onSuccess={() => {
-            setShowForm(false);
-            setEditData(null);
+            closeForm();
             loadBudgets();
           }}
         />
       )}
 
-
-      {/* ========================================
-          DELETE CONFIRMATION MODAL
-      ======================================== */}
-
+      {/* DELETE MODAL */}
       {deleteData && (
-
-        <div style={deleteOverlay}>
-
-          <div style={deleteModal}>
-
-            <div
-              style={
-                deleteIconContainer
-              }
-            >
-              🗑
+        <div className="gt-budget-delete-overlay">
+          <div
+            className="gt-budget-delete-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="delete-budget-title"
+          >
+            <div className="gt-budget-delete-icon">
+              ×
             </div>
 
-
-            <h2 style={deleteTitle}>
+            <h2 id="delete-budget-title">
               Delete budget?
             </h2>
 
-
-            <p
-              style={
-                deleteDescription
-              }
-            >
-              Are you sure you want to delete
-              this budget? This action cannot
-              be undone.
+            <p>
+              Are you sure you want to delete this budget?
+              This action cannot be undone.
             </p>
 
+            <div className="gt-budget-delete-details">
+              <span>Category</span>
+              <strong>{deleteData.category}</strong>
+            </div>
 
-            <div style={deleteActions}>
-
+            <div className="gt-budget-delete-footer">
               <button
                 type="button"
-                onClick={() =>
-                  setDeleteData(null)
-                }
+                className="gt-budget-secondary-btn"
                 disabled={deleteLoading}
-                style={{
-                  ...cancelDeleteButton,
-                  opacity:
-                    deleteLoading
-                      ? 0.5
-                      : 1,
-                }}
+                onClick={() => setDeleteData(null)}
               >
                 Cancel
               </button>
 
-
               <button
                 type="button"
-                onClick={confirmDelete}
+                className="gt-budget-confirm-delete-btn"
                 disabled={deleteLoading}
-                style={{
-                  ...confirmDeleteButton,
-                  opacity:
-                    deleteLoading
-                      ? 0.6
-                      : 1,
-                }}
+                onClick={confirmDelete}
               >
                 {deleteLoading
                   ? "Deleting..."
                   : "Delete Budget"}
               </button>
-
             </div>
-
           </div>
-
         </div>
-
       )}
-
-    </div>
+    </main>
   );
 }
-
-
-// ========================================
-// SUMMARY CARD
-// ========================================
 
 function SummaryCard({
   label,
+  icon,
   value,
-  currency,
+  description,
+  tone = "default",
 }) {
   return (
-    <div style={summaryCard}>
+    <div className={`gt-budget-stat-card ${tone}`}>
+      <div className="gt-budget-stat-top">
+        <span>{label}</span>
+        <span className="gt-budget-stat-icon">
+          {icon}
+        </span>
+      </div>
 
-      <span style={summaryLabel}>
-        {label}
-      </span>
+      <h3 className="gt-budget-stat-value">
+        {value}
+      </h3>
 
-      <h2 style={summaryValue}>
-
-        {currency}{" "}
-
-        {typeof value === "number"
-          ? value.toLocaleString(
-              undefined,
-              {
-                maximumFractionDigits: 2,
-              }
-            )
-          : value}
-
-      </h2>
-
+      <p>{description}</p>
     </div>
   );
 }
-
-
-// ========================================
-// MONTHS
-// ========================================
-
-const months = [
-  { value: 1, label: "January" },
-  { value: 2, label: "February" },
-  { value: 3, label: "March" },
-  { value: 4, label: "April" },
-  { value: 5, label: "May" },
-  { value: 6, label: "June" },
-  { value: 7, label: "July" },
-  { value: 8, label: "August" },
-  { value: 9, label: "September" },
-  { value: 10, label: "October" },
-  { value: 11, label: "November" },
-  { value: 12, label: "December" },
-];
-
-
-// ========================================
-// YEARS
-// ========================================
-
-const currentYear =
-  new Date().getFullYear();
-
-const years = [
-  currentYear - 1,
-  currentYear,
-  currentYear + 1,
-  currentYear + 2,
-];
-
-
-// ========================================
-// PAGE
-// ========================================
-
-const page = {
-  padding: "32px 36px",
-  color: "#e5e7eb",
-  minHeight: "100vh",
-  background: "#080d0b",
-};
-
-
-// ========================================
-// HEADER
-// ========================================
-
-const header = {
-  display: "flex",
-  justifyContent: "space-between",
-  alignItems: "center",
-  gap: 20,
-  marginBottom: 30,
-};
-
-const eyebrow = {
-  fontSize: 11,
-  letterSpacing: "2px",
-  color: "#4ade80",
-  fontWeight: 700,
-  marginBottom: 8,
-};
-
-const title = {
-  fontSize: 32,
-  fontWeight: 700,
-  margin: 0,
-  color: "#f9fafb",
-};
-
-const subtitle = {
-  color: "rgba(255,255,255,0.4)",
-  marginTop: 8,
-  fontSize: 14,
-};
-
-
-// ========================================
-// ADD BUDGET BUTTON
-// ========================================
-
-const addButton = {
-  display: "flex",
-  alignItems: "center",
-  gap: 8,
-  background:
-    "linear-gradient(135deg,#22c55e,#16a34a)",
-  border: "none",
-  padding: "12px 20px",
-  borderRadius: 10,
-  color: "#fff",
-  fontWeight: 600,
-  fontSize: 13,
-  cursor: "pointer",
-  boxShadow:
-    "0 8px 20px rgba(34,197,94,0.15)",
-};
-
-const plusIcon = {
-  fontSize: 20,
-  lineHeight: 1,
-};
-
-
-// ========================================
-// CONTROLS
-// ========================================
-
-const controls = {
-  display: "flex",
-  justifyContent: "space-between",
-  alignItems: "center",
-  gap: 16,
-  marginBottom: 22,
-};
-
-const tabs = {
-  display: "flex",
-  gap: 6,
-  background: "#101814",
-  padding: 5,
-  borderRadius: 10,
-  border:
-    "1px solid rgba(255,255,255,0.06)",
-};
-
-const tab = {
-  border: "none",
-  background: "transparent",
-  color: "rgba(255,255,255,0.45)",
-  padding: "9px 16px",
-  borderRadius: 7,
-  fontSize: 12,
-  cursor: "pointer",
-};
-
-const activeTab = {
-  background:
-    "rgba(74,222,128,0.12)",
-  color: "#4ade80",
-};
-
-const selectors = {
-  display: "flex",
-  gap: 10,
-};
-
-const select = {
-  background: "#101814",
-  border:
-    "1px solid rgba(255,255,255,0.08)",
-  color: "#f9fafb",
-  borderRadius: 9,
-  padding: "9px 12px",
-  fontSize: 12,
-  outline: "none",
-};
-
-
-// ========================================
-// SUMMARY
-// ========================================
-
-const summaryGrid = {
-  display: "grid",
-  gridTemplateColumns:
-    "repeat(4, minmax(0, 1fr))",
-  gap: 18,
-  marginBottom: 24,
-};
-
-const summaryCard = {
-  background: "#101814",
-  border:
-    "1px solid rgba(255,255,255,0.06)",
-  borderRadius: 16,
-  padding: 20,
-};
-
-const summaryLabel = {
-  color: "rgba(255,255,255,0.4)",
-  fontSize: 12,
-};
-
-const summaryValue = {
-  color: "#f9fafb",
-  fontSize: 24,
-  margin: "14px 0 0",
-};
-
-
-// ========================================
-// SECTION
-// ========================================
-
-const section = {
-  background: "#101814",
-  border:
-    "1px solid rgba(255,255,255,0.06)",
-  borderRadius: 16,
-  padding: 22,
-};
-
-const sectionHeader = {
-  marginBottom: 20,
-};
-
-const sectionTitle = {
-  margin: 0,
-  color: "#fff",
-  fontSize: 18,
-};
-
-const sectionSubtitle = {
-  margin: "5px 0 0",
-  color: "rgba(255,255,255,0.3)",
-  fontSize: 11,
-};
-
-
-// ========================================
-// BUDGET GRID
-// ========================================
-
-const budgetGrid = {
-  display: "grid",
-
-  // Exactly 3 cards per row on desktop
-  gridTemplateColumns:
-    "repeat(3, minmax(0, 1fr))",
-
-  gap: 16,
-};
-
-
-// ========================================
-// BUDGET CARD
-// ========================================
-
-const budgetCard = {
-  position: "relative",
-  background: "#0d1410",
-  border:
-    "1px solid rgba(255,255,255,0.06)",
-  borderRadius: 14,
-  padding: 18,
-  minWidth: 0,
-};
-
-
-// ========================================
-// CARD HEADER
-// ========================================
-
-const cardHeader = {
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "space-between",
-  gap: 12,
-};
-
-
-// ========================================
-// ACTION ICONS
-// ========================================
-
-const actionIcons = {
-  display: "flex",
-  alignItems: "center",
-  gap: 6,
-};
-
-const editIconButton = {
-  width: 30,
-  height: 30,
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  border:
-    "1px solid rgba(74,222,128,0.15)",
-  borderRadius: 7,
-  background:
-    "rgba(74,222,128,0.06)",
-  color: "#4ade80",
-  fontSize: 15,
-  cursor: "pointer",
-};
-
-const deleteIconButton = {
-  width: 30,
-  height: 30,
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  border:
-    "1px solid rgba(248,113,113,0.15)",
-  borderRadius: 7,
-  background:
-    "rgba(248,113,113,0.06)",
-  color: "#f87171",
-  fontSize: 14,
-  cursor: "pointer",
-};
-
-
-// ========================================
-// CARD CONTENT
-// ========================================
-
-const cardLabel = {
-  display: "block",
-  color:
-    "rgba(255,255,255,0.38)",
-  fontSize: 11,
-  marginBottom: 5,
-};
-
-const budgetAmount = {
-  margin: 0,
-  color: "#f9fafb",
-  fontSize: 21,
-  fontWeight: 700,
-};
-
-const financialStats = {
-  display: "grid",
-  gridTemplateColumns: "1fr 1fr",
-  gap: 12,
-  marginTop: 18,
-  paddingTop: 15,
-  borderTop:
-    "1px solid rgba(255,255,255,0.06)",
-};
-
-const spentValue = {
-  margin: 0,
-  color: "#f9fafb",
-  fontSize: 13,
-  fontWeight: 600,
-};
-
-const remainingValue = {
-  margin: 0,
-  color: "#4ade80",
-  fontSize: 13,
-  fontWeight: 600,
-};
-
-const usageHeader = {
-  display: "flex",
-  justifyContent: "space-between",
-  alignItems: "center",
-  marginTop: 18,
-};
-
-const usageStatus = {
-  color:
-    "rgba(255,255,255,0.32)",
-  fontSize: 10,
-};
-
-
-// ========================================
-// PROGRESS BAR
-// ========================================
-
-const progressBackground = {
-  width: "100%",
-  height: 6,
-  background:
-    "rgba(255,255,255,0.06)",
-  borderRadius: 10,
-  overflow: "hidden",
-  marginTop: 14,
-};
-
-const progressBar = {
-  height: "100%",
-  borderRadius: 10,
-  transition:
-    "width 0.3s ease",
-};
-
-
-// ========================================
-// EMPTY STATE
-// ========================================
-
-const emptyState = {
-  minHeight: 280,
-  display: "flex",
-  flexDirection: "column",
-  alignItems: "center",
-  justifyContent: "center",
-  textAlign: "center",
-};
-
-const emptyIcon = {
-  fontSize: 34,
-  color: "#4ade80",
-  marginBottom: 10,
-};
-
-const emptyTitle = {
-  color: "#fff",
-  margin: "0 0 6px",
-  fontSize: 16,
-};
-
-const emptyDescription = {
-  color:
-    "rgba(255,255,255,0.3)",
-  fontSize: 12,
-  margin: "0 0 18px",
-};
-
-const emptyButton = {
-  border: "none",
-  borderRadius: 9,
-  padding: "9px 16px",
-  background:
-    "rgba(74,222,128,0.1)",
-  color: "#4ade80",
-  fontSize: 12,
-  fontWeight: 600,
-  cursor: "pointer",
-};
-
-
-// ========================================
-// DELETE MODAL
-// ========================================
-
-const deleteOverlay = {
-  position: "fixed",
-  inset: 0,
-  background:
-    "rgba(0, 0, 0, 0.72)",
-  backdropFilter: "blur(6px)",
-  WebkitBackdropFilter:
-    "blur(6px)",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  zIndex: 2000,
-  padding: 20,
-};
-
-const deleteModal = {
-  width: "100%",
-  maxWidth: 390,
-  background: "#101814",
-  border:
-    "1px solid rgba(255,255,255,0.08)",
-  borderRadius: 18,
-  padding: 28,
-  textAlign: "center",
-  boxShadow:
-    "0 24px 70px rgba(0,0,0,0.5)",
-};
-
-const deleteIconContainer = {
-  width: 52,
-  height: 52,
-  margin: "0 auto 16px",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  borderRadius: "50%",
-  background:
-    "rgba(248,113,113,0.1)",
-  border:
-    "1px solid rgba(248,113,113,0.2)",
-  fontSize: 21,
-};
-
-const deleteTitle = {
-  margin: 0,
-  color: "#fff",
-  fontSize: 19,
-  fontWeight: 700,
-};
-
-const deleteDescription = {
-  margin: "10px 0 24px",
-  color:
-    "rgba(255,255,255,0.45)",
-  fontSize: 13,
-  lineHeight: 1.6,
-};
-
-const deleteActions = {
-  display: "flex",
-  gap: 10,
-};
-
-const cancelDeleteButton = {
-  flex: 1,
-  padding: "11px 14px",
-  borderRadius: 9,
-  border:
-    "1px solid rgba(255,255,255,0.08)",
-  background: "#18231d",
-  color: "#d1d5db",
-  fontSize: 13,
-  fontWeight: 600,
-  cursor: "pointer",
-};
-
-const confirmDeleteButton = {
-  flex: 1,
-  padding: "11px 14px",
-  borderRadius: 9,
-  border:
-    "1px solid rgba(248,113,113,0.25)",
-  background:
-    "rgba(248,113,113,0.12)",
-  color: "#f87171",
-  fontSize: 13,
-  fontWeight: 600,
-  cursor: "pointer",
-};

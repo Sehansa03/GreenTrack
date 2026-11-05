@@ -1,22 +1,103 @@
-import { useEffect, useMemo, useState } from "react";
 
+import { useEffect, useMemo, useState } from "react";
 import { incomeAPI } from "../../api/income";
 import { expenseAPI } from "../../api/expense";
 import { useCurrency } from "../../context/CurrencyContext";
 
 import IncomeExpenseChart from "./IncomeExpenseChart";
-import ExpenseDistributionChart from "./ExpenseDistributionChart";
+import CashFlowChart from "./CashFlowChart";
 import MonthlyFinancialTrend from "./MonthlyFinancialTrend";
 import FinancialInsights from "./FinancialInsights";
+
+import "./Analytics.css";
+
+// Default date filter
+const initialFilters = {
+  period: "all",
+  from: "",
+  to: "",
+};
+
+// Get transaction date
+const getDate = (record) =>
+  record.date ? String(record.date).slice(0, 10) : "";
+
+// Get starting date for selected period
+function getPeriodStart(period) {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = now.getMonth();
+
+  if (period === "month") {
+    return `${year}-${String(month + 1).padStart(2, "0")}-01`;
+  }
+
+  if (period === "year") {
+    return `${year}-01-01`;
+  }
+
+  if (period === "last6") {
+    const date = new Date(year, month - 5, 1);
+
+    return `${date.getFullYear()}-${String(
+      date.getMonth() + 1
+    ).padStart(2, "0")}-01`;
+  }
+
+  return "";
+}
+
+// Check whether transaction matches selected period
+function matchesFilters(record, filters) {
+  // Keep the working All Time fix.
+  // Include transactions even when date is missing.
+  if (filters.period === "all") {
+    return true;
+  }
+
+  const date = getDate(record);
+
+  if (!date) return false;
+
+  if (filters.period === "custom") {
+    if (filters.from && date < filters.from) return false;
+    if (filters.to && date > filters.to) return false;
+
+    return true;
+  }
+
+  const start = getPeriodStart(filters.period);
+
+  if (start && date < start) return false;
+
+  const today = new Date().toISOString().slice(0, 10);
+
+  if (date > today) return false;
+
+  return true;
+}
+
+// Format financial values
+function money(value, currency) {
+  return `${currency} ${Number(value || 0).toLocaleString(
+    "en-US",
+    {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }
+  )}`;
+}
 
 export default function Analytics() {
   const [incomes, setIncomes] = useState([]);
   const [expenses, setExpenses] = useState([]);
 
+  const [filters, setFilters] = useState(initialFilters);
+
   const [dataLoading, setDataLoading] = useState(true);
   const [error, setError] = useState("");
 
-  // GLOBAL CURRENCY
+  // Currency context
   const {
     currency: baseCurrency,
     loading: profileLoading,
@@ -28,11 +109,11 @@ export default function Analytics() {
   const loading =
     dataLoading || profileLoading || ratesLoading;
 
-  // LOAD INCOME AND EXPENSE DATA
+  // Load income and expense data
   useEffect(() => {
     let active = true;
 
-    const loadAnalyticsData = async () => {
+    async function loadData() {
       try {
         setDataLoading(true);
         setError("");
@@ -44,10 +125,31 @@ export default function Analytics() {
 
         if (!active) return;
 
+        // TEMPORARY: Check saved transaction dates
+console.log(
+  "INCOME RECORDS:",
+  incomeRes.data?.data?.map((item) => ({
+    amount: item.amount,
+    date: item.date,
+    createdAt: item.createdAt,
+    currency: item.currency,
+  }))
+);
+
+console.log(
+  "EXPENSE RECORDS:",
+  expenseRes.data?.data?.map((item) => ({
+    amount: item.amount,
+    date: item.date,
+    createdAt: item.createdAt,
+    currency: item.currency,
+  }))
+);
+
         setIncomes(incomeRes.data?.data || []);
         setExpenses(expenseRes.data?.data || []);
       } catch (err) {
-        console.error("Failed to load analytics:", err);
+        console.error("Analytics loading failed:", err);
 
         if (active) {
           setError("Unable to load analytics data.");
@@ -57,417 +159,377 @@ export default function Analytics() {
           setDataLoading(false);
         }
       }
-    };
+    }
 
-    loadAnalyticsData();
+    loadData();
 
     return () => {
       active = false;
     };
   }, []);
 
-  // CONVERT AMOUNTS
-  // Existing chart components expect numeric values.
+  // Filter income
+  const filteredIncomes = useMemo(
+    () =>
+      incomes.filter((item) =>
+        matchesFilters(item, filters)
+      ),
+    [incomes, filters]
+  );
+
+  // Filter expenses
+  const filteredExpenses = useMemo(
+    () =>
+      expenses.filter((item) =>
+        matchesFilters(item, filters)
+      ),
+    [expenses, filters]
+  );
+
+  // Convert transactions into user's base currency
   const convertToBase = (amount, currency) => {
-    return convertAmount(amount, currency) ?? 0;
+    const result = convertAmount(
+      amount,
+      currency || baseCurrency
+    );
+
+    if (result === null || result === undefined) {
+      return null;
+    }
+
+    const numeric = Number(result);
+
+    return Number.isFinite(numeric) ? numeric : null;
   };
 
-  // CALCULATE TOTAL INCOME
-  const totalIncome = useMemo(() => {
-    return incomes.reduce((sum, income) => {
-      const converted = convertAmount(
-        income.amount,
-        income.currency
+  // Total income
+  const totalIncome = filteredIncomes.reduce(
+    (sum, item) => {
+      return (
+        sum +
+        (convertToBase(item.amount, item.currency) ?? 0)
       );
+    },
+    0
+  );
 
-      return sum + (converted ?? 0);
-    }, 0);
-  }, [incomes, convertAmount]);
-
-  // CALCULATE TOTAL EXPENSE
-  const totalExpense = useMemo(() => {
-    return expenses.reduce((sum, expense) => {
-      const converted = convertAmount(
-        expense.amount,
-        expense.currency
+  // Total expense
+  const totalExpense = filteredExpenses.reduce(
+    (sum, item) => {
+      return (
+        sum +
+        (convertToBase(item.amount, item.currency) ?? 0)
       );
+    },
+    0
+  );
 
-      return sum + (converted ?? 0);
-    }, 0);
-  }, [expenses, convertAmount]);
-
-  // BALANCE AND SAVINGS RATE
+  // Net balance
   const balance = totalIncome - totalExpense;
 
+  // Savings rate
   const savingsRate =
     totalIncome > 0
       ? (balance / totalIncome) * 100
       : 0;
 
-  // DETECT UNAVAILABLE EXCHANGE RATES
-  const unavailableRateCount = useMemo(() => {
-    return [...incomes, ...expenses].filter(
-      (transaction) => !hasRate(transaction.currency)
-    ).length;
-  }, [incomes, expenses, hasRate]);
+  // Missing exchange rates
+  const unavailableRateCount = [
+    ...filteredIncomes,
+    ...filteredExpenses,
+  ].filter(
+    (item) => !hasRate(item.currency || baseCurrency)
+  ).length;
 
-  // FORMAT AMOUNT
-  const formatMoney = (amount) => {
-    return `${baseCurrency} ${Number(amount).toLocaleString(
-      "en-US",
-      {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      }
-    )}`;
+  const periodLabels = {
+    all: "All-time overview",
+    month: "This month",
+    last6: "Last 6 months",
+    year: "This year",
+    custom: "Custom date range",
   };
 
   return (
-    <div style={page}>
-      {/* HEADER */}
-      <div style={header}>
+    <main className="gt-analytics">
+      {/* PAGE HEADER */}
+      <header className="gt-analytics-header">
         <div>
-          <p style={eyebrow}>FINANCIAL ANALYTICS</p>
+          <p className="gt-analytics-eyebrow">
+            YOUR FINANCES / ANALYTICS
+          </p>
 
-          <h1 style={title}>Analytics</h1>
+          <h1>Analytics</h1>
 
-          <p style={subtitle}>
-            Understand your income, expenses and
-            financial performance.
+          <p className="gt-analytics-subtitle">
+            Understand your financial performance and spending
+            patterns.
           </p>
         </div>
-      </div>
 
-      {/* ERROR */}
+        {/* TIME PERIOD FILTER */}
+        <div className="gt-analytics-period">
+          <label htmlFor="analytics-period">
+            Time period
+          </label>
+
+          <select
+            id="analytics-period"
+            value={filters.period}
+            onChange={(e) =>
+              setFilters((prev) => ({
+                ...prev,
+                period: e.target.value,
+              }))
+            }
+          >
+            <option value="all">All time</option>
+            <option value="month">This month</option>
+            <option value="last6">Last 6 months</option>
+            <option value="year">This year</option>
+            <option value="custom">Custom range</option>
+          </select>
+        </div>
+      </header>
+
+      {/* CUSTOM DATE FILTER */}
+      {filters.period === "custom" && (
+        <div className="gt-analytics-datebar">
+          <label>
+            From
+            <input
+              type="date"
+              value={filters.from}
+              max={filters.to || undefined}
+              onChange={(e) =>
+                setFilters((prev) => ({
+                  ...prev,
+                  from: e.target.value,
+                }))
+              }
+            />
+          </label>
+
+          <label>
+            To
+            <input
+              type="date"
+              value={filters.to}
+              min={filters.from || undefined}
+              onChange={(e) =>
+                setFilters((prev) => ({
+                  ...prev,
+                  to: e.target.value,
+                }))
+              }
+            />
+          </label>
+
+          <button
+            type="button"
+            onClick={() => setFilters(initialFilters)}
+          >
+            Reset filters
+          </button>
+        </div>
+      )}
+
+      {/* ERROR MESSAGE */}
       {error && (
-        <div style={errorCard}>
+        <div
+          className="gt-analytics-alert error"
+          role="alert"
+        >
           {error}
         </div>
       )}
 
-      {/* EXCHANGE RATE WARNING */}
+      {/* CURRENCY WARNING */}
       {!loading && unavailableRateCount > 0 && (
-        <div style={warningCard}>
-          <strong>
-            Some exchange rates are unavailable.
-          </strong>
+        <div
+          className="gt-analytics-alert warning"
+          role="status"
+        >
+          <strong>Exchange rates unavailable</strong>
 
-          <p style={{ margin: "6px 0 0" }}>
-            {unavailableRateCount} transaction(s)
-            could not be converted to {baseCurrency}.
-            The totals and charts below are incomplete.
-          </p>
+          <span>
+            {unavailableRateCount} transaction(s) could
+            not be converted to {baseCurrency}.
+            Financial totals and insights may be incomplete.
+          </span>
         </div>
       )}
 
-      {/* SUMMARY */}
-      <div style={summaryGrid}>
+      {/* SUMMARY CARDS */}
+      <div className="gt-analytics-summary">
         <SummaryCard
           label="Total Income"
-          value={formatMoney(totalIncome)}
-          loading={loading}
+          value={money(totalIncome, baseCurrency)}
           icon="↗"
+          tone="income"
+          loading={loading}
+          description={periodLabels[filters.period]}
         />
 
         <SummaryCard
           label="Total Expense"
-          value={formatMoney(totalExpense)}
-          loading={loading}
+          value={money(totalExpense, baseCurrency)}
           icon="↘"
+          tone="expense"
+          loading={loading}
+          description={periodLabels[filters.period]}
         />
 
         <SummaryCard
-          label="Balance"
-          value={formatMoney(balance)}
-          loading={loading}
+          label="Net Balance"
+          value={money(balance, baseCurrency)}
           icon="◈"
+          tone="balance"
+          loading={loading}
+          description="Income minus expenses"
         />
 
         <SummaryCard
           label="Savings Rate"
           value={`${savingsRate.toFixed(1)}%`}
-          loading={loading}
           icon="%"
-          description="Based on total income"
+          tone="savings"
+          loading={loading}
+          description="Percentage of income remaining"
         />
       </div>
 
-      {/* CHART AREA */}
-      <div style={chartGrid}>
-        <div style={chartCard}>
-          <h3 style={chartTitle}>
-            Income vs Expense
-          </h3>
+      {/* CHART ROW */}
+      <div className="gt-analytics-chart-grid">
+        {/* INCOME VS EXPENSE */}
+        <section className="gt-analytics-panel">
+          <div className="gt-analytics-panel-heading">
+            <h2>Income vs Expense</h2>
 
-          <p style={chartSubtitle}>
-            Compare your total income and spending
-          </p>
+            <p>Compare your earnings and spending</p>
+          </div>
 
-          <IncomeExpenseChart
-            totalIncome={totalIncome}
-            totalExpense={totalExpense}
-            currency={baseCurrency}
-          />
-        </div>
+          {loading ? (
+            <ChartLoading />
+          ) : (
+            <IncomeExpenseChart
+              totalIncome={totalIncome}
+              totalExpense={totalExpense}
+              currency={baseCurrency}
+            />
+          )}
+        </section>
 
-        <div style={chartCard}>
-          <h3 style={chartTitle}>
-            Expense Distribution
-          </h3>
+        {/* CASH FLOW ANALYSIS */}
+        <section className="gt-analytics-panel">
+          <div className="gt-analytics-panel-heading">
+            <h2>Cash Flow Analysis</h2>
 
-          <p style={chartSubtitle}>
-            See where your money is going
-          </p>
-
-          <ExpenseDistributionChart
-            expenses={expenses}
-            baseCurrency={baseCurrency}
-            convertToBase={convertToBase}
-          />
-        </div>
-      </div>
-
-      {/* MONTHLY FINANCIAL TREND */}
-      <div style={largeChartCard}>
-        <h3 style={chartTitle}>
-          Monthly Financial Trend
-        </h3>
-
-        <p style={chartSubtitle}>
-          Track your financial activity over time
-        </p>
-
-        <MonthlyFinancialTrend
-          incomes={incomes}
-          expenses={expenses}
-          baseCurrency={baseCurrency}
-          convertToBase={convertToBase}
-        />
-      </div>
-
-      {/* FINANCIAL INSIGHTS */}
-      <div style={insightsSection}>
-        <div style={insightsHeader}>
-          <div>
-            <h3 style={chartTitle}>
-              Financial Insights
-            </h3>
-
-            <p style={chartSubtitle}>
-              Understand your spending patterns and
-              financial performance
+            <p>
+              Monthly income remaining after expenses
             </p>
           </div>
 
-          <div style={insightsBadge}>
-            ● Current records
-          </div>
+          {loading ? (
+            <ChartLoading />
+          ) : (
+            <CashFlowChart
+              incomes={filteredIncomes}
+              expenses={filteredExpenses}
+              baseCurrency={baseCurrency}
+              convertToBase={convertToBase}
+            />
+          )}
+        </section>
+      </div>
+
+      {/* MONTHLY FINANCIAL TREND */}
+      <section className="gt-analytics-panel gt-analytics-wide">
+        <div className="gt-analytics-panel-heading">
+          <h2>Monthly Financial Trend</h2>
+
+          <p>
+            Track income and expenses over time
+          </p>
         </div>
 
-        <FinancialInsights
-          incomes={incomes}
-          expenses={expenses}
-          totalIncome={totalIncome}
-          totalExpense={totalExpense}
-          balance={balance}
-          savingsRate={savingsRate}
-          baseCurrency={baseCurrency}
-          convertToBase={convertToBase}
-        />
-      </div>
-    </div>
+        {loading ? (
+          <ChartLoading />
+        ) : (
+          <MonthlyFinancialTrend
+            incomes={filteredIncomes}
+            expenses={filteredExpenses}
+            baseCurrency={baseCurrency}
+            convertToBase={convertToBase}
+          />
+        )}
+      </section>
+
+      {/* FINANCIAL INSIGHTS */}
+      <section className="gt-analytics-insights-section">
+        <div className="gt-analytics-insights-heading">
+          <div>
+            <h2>Financial Insights</h2>
+
+            <p>
+              Key observations based on your selected period
+            </p>
+          </div>
+
+          <span className="gt-analytics-period-tag">
+            {periodLabels[filters.period]}
+          </span>
+        </div>
+
+        {loading ? (
+          <ChartLoading />
+        ) : (
+          <FinancialInsights
+            incomes={filteredIncomes}
+            expenses={filteredExpenses}
+            totalIncome={totalIncome}
+            totalExpense={totalExpense}
+            balance={balance}
+            savingsRate={savingsRate}
+            baseCurrency={baseCurrency}
+            convertToBase={convertToBase}
+          />
+        )}
+      </section>
+    </main>
   );
 }
 
-/* ================= SUMMARY CARD ================= */
-
+// SUMMARY CARD COMPONENT
 function SummaryCard({
   label,
   value,
-  loading,
   icon,
-  description = "Based on current records",
+  tone,
+  loading,
+  description,
 }) {
   return (
-    <div style={summaryCard}>
-      <div style={summaryTop}>
+    <article className={`gt-analytics-stat ${tone}`}>
+      <div className="gt-analytics-stat-top">
         <span>{label}</span>
 
-        <div style={iconStyle}>
+        <span className="gt-analytics-stat-icon">
           {icon}
-        </div>
+        </span>
       </div>
 
-      <h2 style={valueStyle}>
-        {loading ? "Loading..." : value}
-      </h2>
+      <h2>{loading ? "Loading..." : value}</h2>
 
-      <p style={summaryDescription}>
-        {description}
-      </p>
-    </div>
+      <p>{description}</p>
+    </article>
   );
 }
 
-/* ================= PAGE STYLES ================= */
-
-const page = {
-  padding: "32px 36px",
-  color: "#e5e7eb",
-  minHeight: "100vh",
-  background: "#080d0b",
-};
-
-const header = {
-  marginBottom: 30,
-};
-
-const eyebrow = {
-  fontSize: 11,
-  letterSpacing: "2px",
-  color: "#4ade80",
-  fontWeight: 700,
-  marginBottom: 8,
-};
-
-const title = {
-  fontSize: 32,
-  fontWeight: 700,
-  margin: 0,
-  color: "#f9fafb",
-};
-
-const subtitle = {
-  color: "rgba(255,255,255,0.4)",
-  marginTop: 8,
-  fontSize: 14,
-};
-
-const summaryGrid = {
-  display: "grid",
-  gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
-  gap: 18,
-  marginBottom: 24,
-};
-
-const summaryCard = {
-  background: "#101814",
-  border: "1px solid rgba(255,255,255,0.06)",
-  borderRadius: 16,
-  padding: 22,
-  minWidth: 0,
-};
-
-const summaryTop = {
-  display: "flex",
-  justifyContent: "space-between",
-  alignItems: "center",
-  color: "rgba(255,255,255,0.4)",
-  fontSize: 12,
-};
-
-const iconStyle = {
-  width: 30,
-  height: 30,
-  borderRadius: 8,
-  background: "rgba(74,222,128,0.1)",
-  color: "#4ade80",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-};
-
-const valueStyle = {
-  fontSize: 25,
-  margin: "18px 0 8px",
-  color: "#f9fafb",
-  overflowWrap: "anywhere",
-};
-
-const summaryDescription = {
-  fontSize: 11,
-  color: "rgba(255,255,255,0.3)",
-  margin: 0,
-};
-
-const chartGrid = {
-  display: "grid",
-  gridTemplateColumns:
-    "minmax(0, 1.5fr) minmax(300px, 1fr)",
-  gap: 22,
-  marginBottom: 22,
-};
-
-const chartCard = {
-  background: "#101814",
-  border: "1px solid rgba(255,255,255,0.06)",
-  borderRadius: 16,
-  padding: 22,
-  minWidth: 0,
-};
-
-const chartTitle = {
-  margin: 0,
-  fontSize: 17,
-  color: "#fff",
-};
-
-const chartSubtitle = {
-  margin: "5px 0 16px",
-  fontSize: 11,
-  color: "rgba(255,255,255,0.3)",
-};
-
-const largeChartCard = {
-  background: "#101814",
-  border: "1px solid rgba(255,255,255,0.06)",
-  borderRadius: 16,
-  padding: 22,
-  marginBottom: 22,
-};
-
-const insightsSection = {
-  background: "#0d1410",
-  border: "1px solid rgba(255,255,255,0.06)",
-  borderRadius: 16,
-  padding: 22,
-};
-
-const insightsHeader = {
-  display: "flex",
-  justifyContent: "space-between",
-  alignItems: "flex-start",
-  gap: 20,
-  marginBottom: 20,
-};
-
-const insightsBadge = {
-  padding: "6px 10px",
-  borderRadius: 20,
-  background: "rgba(74,222,128,0.08)",
-  border: "1px solid rgba(74,222,128,0.15)",
-  color: "#4ade80",
-  fontSize: 10,
-  fontWeight: 600,
-  whiteSpace: "nowrap",
-};
-
-const warningCard = {
-  padding: "14px 18px",
-  marginBottom: 22,
-  borderRadius: 12,
-  background: "rgba(245,158,11,0.08)",
-  border: "1px solid rgba(245,158,11,0.25)",
-  color: "#fbbf24",
-  fontSize: 13,
-};
-
-const errorCard = {
-  padding: "14px 18px",
-  marginBottom: 22,
-  borderRadius: 12,
-  background: "rgba(239,68,68,0.08)",
-  border: "1px solid rgba(239,68,68,0.25)",
-  color: "#fca5a5",
-  fontSize: 13,
-};
+// CHART LOADING COMPONENT
+function ChartLoading() {
+  return (
+    <div className="gt-analytics-chart-loading">
+      Loading financial data...
+    </div>
+  );
+}

@@ -1,11 +1,12 @@
+
 import {
   ResponsiveContainer,
   BarChart,
   Bar,
   XAxis,
   YAxis,
-  Tooltip,
   CartesianGrid,
+  Tooltip,
   Cell,
   LabelList,
 } from "recharts";
@@ -15,117 +16,116 @@ export default function IncomeExpenseChart({
   totalExpense,
   currency,
 }) {
+  const income = Number(totalIncome) || 0;
+  const expense = Number(totalExpense) || 0;
+
   const data = [
     {
       name: "Income",
-      amount: Number(totalIncome || 0),
-      color: "#4ade80",
+      amount: income,
+      color: "#35B978",
     },
     {
       name: "Expense",
-      amount: Number(totalExpense || 0),
-      color: "#f87171",
+      amount: expense,
+      color: "#E77D7D",
     },
   ];
 
+  const formatMoney = (amount) =>
+    `${currency} ${Number(amount).toLocaleString("en-US", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })}`;
+
+  const compact = (amount) =>
+    Intl.NumberFormat("en-US", {
+      notation: "compact",
+      maximumFractionDigits: 1,
+    }).format(amount);
+
+  if (income === 0 && expense === 0) {
+    return (
+      <div className="gt-analytics-empty">
+        <strong>No financial data yet</strong>
+        <p>Add income or expenses to see the comparison.</p>
+      </div>
+    );
+  }
+
   return (
-    <div style={chartWrapper}>
-      <ResponsiveContainer width="100%" height={320}>
+    <div className="gt-analytics-chart-body">
+      <ResponsiveContainer width="100%" height={285}>
         <BarChart
           data={data}
+          layout="vertical"
           margin={{
-            top: 35,
-            right: 20,
-            left: 20,
+            top: 15,
+            right: 50,
+            left: 5,
             bottom: 10,
           }}
+          barCategoryGap="38%"
         >
           <CartesianGrid
-            strokeDasharray="3 3"
-            stroke="rgba(255,255,255,0.06)"
-            vertical={false}
+            stroke="#28342D"
+            strokeDasharray="3 5"
+            horizontal={false}
           />
 
           <XAxis
-            dataKey="name"
-            tick={{
-              fill: "rgba(255,255,255,0.6)",
-              fontSize: 13,
-              fontWeight: 600,
-            }}
+            type="number"
+            domain={[0, "dataMax"]}
             axisLine={false}
             tickLine={false}
+            tick={{ fill: "#829188", fontSize: 11 }}
+            tickFormatter={compact}
           />
 
           <YAxis
-            tick={{
-              fill: "rgba(255,255,255,0.4)",
-              fontSize: 10,
-            }}
+            type="category"
+            dataKey="name"
+            width={65}
             axisLine={false}
             tickLine={false}
-            tickFormatter={(value) =>
-              Number(value).toLocaleString()
-            }
+            tick={{
+              fill: "#B6C3BA",
+              fontSize: 12,
+              fontWeight: 500,
+            }}
           />
 
           <Tooltip
-  cursor={{
-    fill: "rgba(255,255,255,0.03)",
-  }}
-  formatter={(value) => [
-    `${currency} ${Number(value).toLocaleString(
-      undefined,
-      {
-        maximumFractionDigits: 2,
-      }
-    )}`,
-    "Amount",
-  ]}
-  contentStyle={{
-    background: "#101814",
-    border: "1px solid rgba(74,222,128,0.2)",
-    borderRadius: 10,
-    boxShadow: "0 8px 30px rgba(0,0,0,0.4)",
-    color: "#f9fafb",
-    padding: "10px 12px",
-  }}
-  labelStyle={{
-    color: "#4ade80",
-    fontWeight: 600,
-    marginBottom: 5,
-  }}
-  itemStyle={{
-    color: "#f9fafb",
-    fontSize: 12,
-  }}
-/>
+            cursor={{ fill: "rgba(255,255,255,0.03)" }}
+            formatter={(value) => [
+              formatMoney(value),
+              "Amount",
+            ]}
+            contentStyle={{
+              background: "#202925",
+              border: "1px solid #34453A",
+              borderRadius: 10,
+              color: "#F2F5F3",
+            }}
+            labelStyle={{ color: "#F2F5F3" }}
+            itemStyle={{ color: "#F2F5F3" }}
+          />
 
           <Bar
             dataKey="amount"
-            radius={[8, 8, 0, 0]}
-            barSize={70}
+            maxBarSize={45}
+            radius={[0, 7, 7, 0]}
           >
-            {data.map((entry) => (
-              <Cell
-                key={entry.name}
-                fill={entry.color}
-              />
+            {data.map((item) => (
+              <Cell key={item.name} fill={item.color} />
             ))}
 
             <LabelList
               dataKey="amount"
-              position="top"
-              formatter={(value) =>
-                `${currency} ${Number(value).toLocaleString(
-                  undefined,
-                  {
-                    maximumFractionDigits: 0,
-                  }
-                )}`
-              }
+              position="right"
+              formatter={compact}
               style={{
-                fill: "#f9fafb",
+                fill: "#E5EDE7",
                 fontSize: 11,
                 fontWeight: 600,
               }}
@@ -133,11 +133,17 @@ export default function IncomeExpenseChart({
           </Bar>
         </BarChart>
       </ResponsiveContainer>
+
+      <div className="gt-analytics-mini-legend">
+        <span>
+          <i style={{ background: "#35B978" }} />
+          Income
+        </span>
+        <span>
+          <i style={{ background: "#E77D7D" }} />
+          Expense
+        </span>
+      </div>
     </div>
   );
 }
-
-const chartWrapper = {
-  width: "100%",
-  marginTop: 20,
-};

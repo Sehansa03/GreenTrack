@@ -14,9 +14,99 @@ const MONTHS = [
   "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
 ];
 
-// ============================================
-// SPROUT - GREENTRACK FINANCIAL COMPANION
-// ============================================
+/* ============================================
+   DATE AND DATA HELPERS
+============================================ */
+
+function getDateKey(value) {
+  if (!value) return "";
+
+  if (
+    typeof value === "string" &&
+    /^\d{4}-\d{2}-\d{2}/.test(value)
+  ) {
+    return value.slice(0, 10);
+  }
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) return "";
+
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
+}
+
+function getDateParts(value) {
+  const key = getDateKey(value);
+
+  if (!key) return null;
+
+  const [year, month, day] = key.split("-").map(Number);
+
+  if (
+    !Number.isInteger(year) ||
+    !Number.isInteger(month) ||
+    !Number.isInteger(day) ||
+    month < 1 ||
+    month > 12 ||
+    day < 1 ||
+    day > 31
+  ) {
+    return null;
+  }
+
+  return {
+    year,
+    month: month - 1,
+    day,
+  };
+}
+
+function isInMonth(value, year, month) {
+  const parts = getDateParts(value);
+
+  return (
+    parts?.year === year &&
+    parts?.month === month
+  );
+}
+
+function formatTransactionDate(value) {
+  const parts = getDateParts(value);
+
+  if (!parts) return "Date unavailable";
+
+  const date = new Date(
+    parts.year,
+    parts.month,
+    parts.day
+  );
+
+  return date.toLocaleDateString("en-GB", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+}
+
+function getTransactionTitle(item) {
+  if (item.transactionType === "income") {
+    return item.source || item.title || "Income";
+  }
+
+  return item.category || item.title || "Expense";
+}
+
+function getTransactionDescription(item) {
+  return item.description || "";
+}
+
+/* ============================================
+   SPROUT - FINANCIAL COMPANION
+============================================ */
 
 function Sprout({ size = 76 }) {
   return (
@@ -66,15 +156,28 @@ function Sprout({ size = 76 }) {
         strokeLinecap="round"
       />
 
-      <circle cx="41" cy="85" r="5" fill="#FB7185" opacity=".2" />
-      <circle cx="79" cy="85" r="5" fill="#FB7185" opacity=".2" />
+      <circle
+        cx="41"
+        cy="85"
+        r="5"
+        fill="#FB7185"
+        opacity=".2"
+      />
+
+      <circle
+        cx="79"
+        cy="85"
+        r="5"
+        fill="#FB7185"
+        opacity=".2"
+      />
     </svg>
   );
 }
 
-// ============================================
-// FINANCIAL SUMMARY CARD
-// ============================================
+/* ============================================
+   SUMMARY CARD
+============================================ */
 
 function SummaryCard({
   label,
@@ -82,6 +185,7 @@ function SummaryCard({
   rawValue,
   description,
   icon,
+  comparison,
   isAvailable = true,
 }) {
   const isNegative =
@@ -98,25 +202,64 @@ function SummaryCard({
     >
       <div className="gd-summary-top">
         <span>{label}</span>
-        <span className="gd-summary-icon">{icon}</span>
+
+        <span className="gd-summary-icon">
+          {icon}
+        </span>
       </div>
 
-      <strong className="gd-summary-value">{value}</strong>
+      <strong className="gd-summary-value">
+        {value}
+      </strong>
+
       <p>{description}</p>
+
+      {comparison && isAvailable && (
+        <div className="gd-summary-comparison">
+          <span
+            className={`gd-comparison-badge ${
+              comparison.direction === "up"
+                ? "up"
+                : comparison.direction === "down"
+                ? "down"
+                : "neutral"
+            }`}
+          >
+            {comparison.direction === "up"
+              ? "↑"
+              : comparison.direction === "down"
+              ? "↓"
+              : "—"}{" "}
+            {comparison.text}
+          </span>
+
+          <span className="gd-comparison-label">
+            vs. last month
+          </span>
+        </div>
+      )}
     </article>
   );
 }
 
-// ============================================
-// EMPTY STATE
-// ============================================
+/* ============================================
+   EMPTY STATE
+============================================ */
 
-function EmptyState({ title, description, to, action }) {
+function EmptyState({
+  title,
+  description,
+  to,
+  action,
+}) {
   return (
     <div className="gd-empty-state">
-      <div className="gd-empty-symbol">✦</div>
+      <div className="gd-empty-symbol">
+        ✦
+      </div>
 
       <strong>{title}</strong>
+
       <p>{description}</p>
 
       {to && (
@@ -128,14 +271,15 @@ function EmptyState({ title, description, to, action }) {
   );
 }
 
-// ============================================
-// MAIN DASHBOARD
-// ============================================
+/* ============================================
+   DASHBOARD
+============================================ */
 
 export default function Dashboard() {
   const [user, setUser] = useState(null);
   const [incomes, setIncomes] = useState([]);
   const [expenses, setExpenses] = useState([]);
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -145,56 +289,96 @@ export default function Dashboard() {
   const {
     currency: baseCurrency,
     convertAmount,
+    hasRate,
     loading: currencyLoading,
     ratesLoading,
   } = useCurrency();
 
-  // Close transaction dropdown on outside click / Escape
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const currentMonth = now.getMonth();
+
+  const previousMonthDate = new Date(
+    currentYear,
+    currentMonth - 1,
+    1
+  );
+
+  const previousYear = previousMonthDate.getFullYear();
+  const previousMonth = previousMonthDate.getMonth();
+
+  const busy =
+    loading || currencyLoading || ratesLoading;
+
+  /* ============================================
+     CLOSE ADD TRANSACTION DROPDOWN
+  ============================================ */
+
   useEffect(() => {
-    const handleOutsideClick = (event) => {
+    function handleOutsideClick(event) {
       if (
         addMenuRef.current &&
         !addMenuRef.current.contains(event.target)
       ) {
         setShowAddMenu(false);
       }
-    };
+    }
 
-    const handleEscape = (event) => {
+    function handleEscape(event) {
       if (event.key === "Escape") {
         setShowAddMenu(false);
       }
-    };
+    }
 
-    document.addEventListener("mousedown", handleOutsideClick);
-    document.addEventListener("keydown", handleEscape);
+    document.addEventListener(
+      "mousedown",
+      handleOutsideClick
+    );
+
+    document.addEventListener(
+      "keydown",
+      handleEscape
+    );
 
     return () => {
-      document.removeEventListener("mousedown", handleOutsideClick);
-      document.removeEventListener("keydown", handleEscape);
+      document.removeEventListener(
+        "mousedown",
+        handleOutsideClick
+      );
+
+      document.removeEventListener(
+        "keydown",
+        handleEscape
+      );
     };
   }, []);
 
-  // Load income, expense and profile data
+  /* ============================================
+     LOAD DASHBOARD DATA
+  ============================================ */
+
   useEffect(() => {
     let active = true;
 
-    const loadDashboard = async () => {
+    async function loadDashboard() {
       try {
         setLoading(true);
         setError("");
 
-        const [incomeRes, expenseRes, profileRes] =
-          await Promise.all([
-            incomeAPI.getAll(),
-            expenseAPI.getAll(),
-            authAPI.getProfile(),
-          ]);
+        const [
+          incomeResponse,
+          expenseResponse,
+          profileResponse,
+        ] = await Promise.all([
+          incomeAPI.getAll(),
+          expenseAPI.getAll(),
+          authAPI.getProfile(),
+        ]);
 
         if (!active) return;
 
-        const incomePayload = incomeRes.data;
-        const expensePayload = expenseRes.data;
+        const incomePayload = incomeResponse.data;
+        const expensePayload = expenseResponse.data;
 
         const incomeRecords = Array.isArray(incomePayload)
           ? incomePayload
@@ -209,14 +393,18 @@ export default function Dashboard() {
             [];
 
         setIncomes(
-          Array.isArray(incomeRecords) ? incomeRecords : []
+          Array.isArray(incomeRecords)
+            ? incomeRecords
+            : []
         );
 
         setExpenses(
-          Array.isArray(expenseRecords) ? expenseRecords : []
+          Array.isArray(expenseRecords)
+            ? expenseRecords
+            : []
         );
 
-        const profile = profileRes.data;
+        const profile = profileResponse.data;
 
         setUser(
           profile?.data ??
@@ -224,7 +412,10 @@ export default function Dashboard() {
           profile
         );
       } catch (err) {
-        console.error("Dashboard load error:", err);
+        console.error(
+          "Dashboard load error:",
+          err
+        );
 
         if (active) {
           setError(
@@ -233,9 +424,11 @@ export default function Dashboard() {
           );
         }
       } finally {
-        if (active) setLoading(false);
+        if (active) {
+          setLoading(false);
+        }
       }
-    };
+    }
 
     loadDashboard();
 
@@ -244,47 +437,68 @@ export default function Dashboard() {
     };
   }, []);
 
-  const now = new Date();
-  const currentYear = now.getFullYear();
-  const currentMonth = now.getMonth();
+  /* ============================================
+     CURRENCY HELPERS
+  ============================================ */
 
-  // Calculate totals in preferred currency
+  function convertRecord(record) {
+    const originalCurrency =
+      record.currency || baseCurrency;
+
+    if (!hasRate(originalCurrency)) {
+      return null;
+    }
+
+    const converted = convertAmount(
+      record.amount,
+      originalCurrency
+    );
+
+    if (
+      converted == null ||
+      !Number.isFinite(Number(converted))
+    ) {
+      return null;
+    }
+
+    return Number(converted);
+  }
+
+  function formatMoney(amount) {
+    return `${baseCurrency || ""} ${Number(
+      amount
+    ).toLocaleString("en-US", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })}`;
+  }
+
+  function displayMoney(amount) {
+    if (busy) return "Loading...";
+    if (error) return "Unavailable";
+
+    if (financials.missingRate) {
+      return "Rate unavailable";
+    }
+
+    return formatMoney(amount);
+  }
+
+  /* ============================================
+     FINANCIAL CALCULATIONS
+  ============================================ */
+
   const financials = useMemo(() => {
     let missingRate = false;
 
-    const isCurrentMonth = (date) => {
-      if (!date) return false;
-
-      const value = new Date(date);
-
-      return (
-        !Number.isNaN(value.getTime()) &&
-        value.getFullYear() === currentYear &&
-        value.getMonth() === currentMonth
-      );
-    };
-
-    const convertRecord = (record) => {
-      const converted = convertAmount(
-        record.amount,
-        record.currency || baseCurrency
-      );
-
-      if (
-        converted === null ||
-        !Number.isFinite(Number(converted))
-      ) {
-        missingRate = true;
-        return null;
-      }
-
-      return Number(converted);
-    };
-
     let allIncome = 0;
     let allExpenses = 0;
+
     let monthlyIncome = 0;
     let monthlyExpenses = 0;
+
+    let previousIncome = 0;
+    let previousExpenses = 0;
 
     const categoryTotals = {};
 
@@ -294,40 +508,111 @@ export default function Dashboard() {
     }));
 
     incomes.forEach((income) => {
-      const converted = convertRecord(income);
+      const originalCurrency =
+        income.currency || baseCurrency;
 
-      if (converted === null) return;
+      if (!hasRate(originalCurrency)) {
+        missingRate = true;
+        return;
+      }
 
-      allIncome += converted;
+      const converted = convertAmount(
+        income.amount,
+        originalCurrency
+      );
 
-      if (isCurrentMonth(income.date)) {
-        monthlyIncome += converted;
+      if (
+        converted == null ||
+        !Number.isFinite(Number(converted))
+      ) {
+        missingRate = true;
+        return;
+      }
+
+      const amount = Number(converted);
+
+      allIncome += amount;
+
+      if (
+        isInMonth(
+          income.date,
+          currentYear,
+          currentMonth
+        )
+      ) {
+        monthlyIncome += amount;
+      }
+
+      if (
+        isInMonth(
+          income.date,
+          previousYear,
+          previousMonth
+        )
+      ) {
+        previousIncome += amount;
       }
     });
 
     expenses.forEach((expense) => {
-      const converted = convertRecord(expense);
+      const originalCurrency =
+        expense.currency || baseCurrency;
 
-      if (converted === null) return;
+      if (!hasRate(originalCurrency)) {
+        missingRate = true;
+        return;
+      }
 
-      allExpenses += converted;
+      const converted = convertAmount(
+        expense.amount,
+        originalCurrency
+      );
 
-      const date = new Date(expense.date);
+      if (
+        converted == null ||
+        !Number.isFinite(Number(converted))
+      ) {
+        missingRate = true;
+        return;
+      }
 
-      if (isCurrentMonth(expense.date)) {
-        monthlyExpenses += converted;
+      const amount = Number(converted);
 
-        const category = expense.category || "Other";
+      allExpenses += amount;
+
+      if (
+        isInMonth(
+          expense.date,
+          currentYear,
+          currentMonth
+        )
+      ) {
+        monthlyExpenses += amount;
+
+        const category =
+          expense.category || "Other";
 
         categoryTotals[category] =
-          (categoryTotals[category] || 0) + converted;
+          (categoryTotals[category] || 0) + amount;
       }
 
       if (
-        !Number.isNaN(date.getTime()) &&
-        date.getFullYear() === currentYear
+        isInMonth(
+          expense.date,
+          previousYear,
+          previousMonth
+        )
       ) {
-        monthlyTrend[date.getMonth()].amount += converted;
+        previousExpenses += amount;
+      }
+
+      const parts = getDateParts(expense.date);
+
+      if (
+        parts &&
+        parts.year === currentYear
+      ) {
+        monthlyTrend[parts.month].amount += amount;
       }
     });
 
@@ -335,7 +620,10 @@ export default function Dashboard() {
       balance: allIncome - allExpenses,
       monthlyIncome,
       monthlyExpenses,
-      netSavings: monthlyIncome - monthlyExpenses,
+      netSavings:
+        monthlyIncome - monthlyExpenses,
+      previousIncome,
+      previousExpenses,
       categoryTotals,
       monthlyTrend,
       missingRate,
@@ -345,61 +633,163 @@ export default function Dashboard() {
     expenses,
     baseCurrency,
     convertAmount,
+    hasRate,
     currentYear,
     currentMonth,
+    previousYear,
+    previousMonth,
   ]);
 
-  const busy = loading || currencyLoading || ratesLoading;
-  const hasTransactions = incomes.length + expenses.length > 0;
-  const valuesAvailable = !busy && !error && !financials.missingRate;
+  /* ============================================
+     MONTHLY COMPARISONS
+  ============================================ */
 
-  const formatMoney = (amount) =>
-    `${baseCurrency || ""} ${Number(amount).toLocaleString(
-      undefined,
-      {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
+  function getComparison(current, previous) {
+    if (previous === 0) {
+      if (current === 0) {
+        return {
+          text: "No change",
+          direction: "neutral",
+        };
       }
-    )}`;
 
-  const displayMoney = (amount) => {
+      return {
+        text: "New activity",
+        direction: "neutral",
+      };
+    }
+
+    const percentage =
+      ((current - previous) / Math.abs(previous)) * 100;
+
+    return {
+      text: `${Math.abs(percentage).toFixed(1)}%`,
+      direction:
+        percentage > 0
+          ? "up"
+          : percentage < 0
+          ? "down"
+          : "neutral",
+    };
+  }
+
+  const incomeComparison = getComparison(
+    financials.monthlyIncome,
+    financials.previousIncome
+  );
+
+  const expenseComparison = getComparison(
+    financials.monthlyExpenses,
+    financials.previousExpenses
+  );
+
+  /* ============================================
+     RECENT TRANSACTIONS
+  ============================================ */
+
+  const recentTransactions = useMemo(() => {
+    const incomeRecords = incomes.map((item) => ({
+      ...item,
+      transactionType: "income",
+    }));
+
+    const expenseRecords = expenses.map((item) => ({
+      ...item,
+      transactionType: "expense",
+    }));
+
+    return [...incomeRecords, ...expenseRecords]
+      .sort((a, b) => {
+        const dateA = getDateKey(
+          a.date || a.createdAt
+        );
+
+        const dateB = getDateKey(
+          b.date || b.createdAt
+        );
+
+        if (dateA !== dateB) {
+          return dateB.localeCompare(dateA);
+        }
+
+        return String(b.createdAt || "").localeCompare(
+          String(a.createdAt || "")
+        );
+      })
+      .slice(0, 5);
+  }, [incomes, expenses]);
+
+  function getTransactionAmount(item) {
     if (busy) return "Loading...";
     if (error) return "Unavailable";
-    if (financials.missingRate) return "Rate unavailable";
 
-    return formatMoney(amount);
-  };
+    const converted = convertRecord(item);
 
-  const greeting = () => {
+    if (converted === null) {
+      return "Rate unavailable";
+    }
+
+    const prefix =
+      item.transactionType === "income"
+        ? "+"
+        : "−";
+
+    return `${prefix} ${formatMoney(converted)}`;
+  }
+
+  /* ============================================
+     DISPLAY DATA
+  ============================================ */
+
+  const hasTransactions =
+    incomes.length + expenses.length > 0;
+
+  const valuesAvailable =
+    !busy &&
+    !error &&
+    !financials.missingRate;
+
+  const categoryEntries = Object.entries(
+    financials.categoryTotals
+  )
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5);
+
+  const maxTrend = Math.max(
+    1,
+    ...financials.monthlyTrend.map(
+      (item) => item.amount
+    )
+  );
+
+  const hasYearlyExpenses =
+    financials.monthlyTrend.some(
+      (item) => item.amount > 0
+    );
+
+  function greeting() {
     const hour = new Date().getHours();
 
     if (hour < 12) return "Good morning";
     if (hour < 18) return "Good afternoon";
+
     return "Good evening";
-  };
+  }
 
   const firstName =
-    user?.fullName?.trim().split(/\s+/)[0] || "there";
+    user?.fullName?.trim().split(/\s+/)[0] ||
+    "there";
 
-  const categoryEntries = Object.entries(
-    financials.categoryTotals
-  ).sort((a, b) => b[1] - a[1]);
+  /* ============================================
+     DYNAMIC SPROUT MESSAGE
+  ============================================ */
 
-  const maxTrend = Math.max(
-    1,
-    ...financials.monthlyTrend.map((item) => item.amount)
-  );
-
-  const hasYearlyExpenses = financials.monthlyTrend.some(
-    (item) => item.amount > 0
-  );
-
-  // Sprout message changes based on financial data
   const sproutMessage = useMemo(() => {
     if (busy) {
       return {
         title: "Getting your finances ready...",
-        description: "I'm preparing your financial overview.",
+        description:
+          "I'm preparing your financial overview.",
         action: null,
       };
     }
@@ -415,9 +805,9 @@ export default function Dashboard() {
 
     if (financials.missingRate) {
       return {
-        title: "A quick currency update is needed.",
+        title: "A currency update is needed.",
         description:
-          "Some exchange rates are unavailable right now. Your totals may need a moment to update.",
+          "Some exchange rates are unavailable. Your financial totals cannot be calculated completely right now.",
         action: null,
       };
     }
@@ -427,7 +817,10 @@ export default function Dashboard() {
         title: "Welcome to GreenTrack!",
         description:
           "I'm Sprout! Start by recording your first transaction, and we'll grow your financial habits together.",
-        action: { label: "Get started", path: "/income" },
+        action: {
+          label: "Get started",
+          path: "/income",
+        },
       };
     }
 
@@ -435,8 +828,11 @@ export default function Dashboard() {
       return {
         title: "Let's improve your monthly balance.",
         description:
-          "Your spending is higher than your recorded income this month. Reviewing your budget can help.",
-        action: { label: "View budgets", path: "/budgets" },
+          "Your recorded spending is higher than your income this month. Reviewing your budget may help.",
+        action: {
+          label: "View budgets",
+          path: "/budgets",
+        },
       };
     }
 
@@ -444,8 +840,11 @@ export default function Dashboard() {
       return {
         title: "You're making great progress!",
         description:
-          "You've saved some money this month. Keep tracking your transactions and building good habits.",
-        action: { label: "View insights", path: "/charts" },
+          "Your recorded income is higher than your spending this month. Keep building consistent financial habits.",
+        action: {
+          label: "View insights",
+          path: "/charts",
+        },
       };
     }
 
@@ -453,7 +852,10 @@ export default function Dashboard() {
       title: "Small steps make a big difference.",
       description:
         "Keep recording your transactions to understand your finances better.",
-      action: { label: "View insights", path: "/charts" },
+      action: {
+        label: "View insights",
+        path: "/charts",
+      },
     };
   }, [
     busy,
@@ -463,25 +865,38 @@ export default function Dashboard() {
     hasTransactions,
   ]);
 
+  /* ============================================
+     RENDER
+  ============================================ */
+
   return (
     <div className="gd-dashboard">
-      {/* Header */}
+
+      {/* HEADER */}
       <header className="gd-header">
         <div>
-          <span className="gd-eyebrow">OVERVIEW</span>
+          <span className="gd-eyebrow">
+            OVERVIEW
+          </span>
 
           <h1>
-            {greeting()}, {firstName} <span>👋</span>
+            {greeting()}, {firstName}{" "}
+            <span aria-hidden="true">👋</span>
           </h1>
 
           <p>Your finances at a glance.</p>
         </div>
 
-        <div className="gd-header-actions" ref={addMenuRef}>
+        <div
+          className="gd-header-actions"
+          ref={addMenuRef}
+        >
           <button
             type="button"
             className="gd-button gd-button-primary"
-            onClick={() => setShowAddMenu((prev) => !prev)}
+            onClick={() =>
+              setShowAddMenu((prev) => !prev)
+            }
             aria-expanded={showAddMenu}
             aria-haspopup="true"
           >
@@ -492,37 +907,51 @@ export default function Dashboard() {
             <div className="gd-add-dropdown">
               <Link
                 to="/income"
-                onClick={() => setShowAddMenu(false)}
+                onClick={() =>
+                  setShowAddMenu(false)
+                }
               >
-                <span>↙</span> Add Income
+                <span>↙</span>
+                Add Income
               </Link>
 
               <Link
                 to="/expense"
-                onClick={() => setShowAddMenu(false)}
+                onClick={() =>
+                  setShowAddMenu(false)
+                }
               >
-                <span>↗</span> Add Expense
+                <span>↗</span>
+                Add Expense
               </Link>
             </div>
           )}
         </div>
       </header>
 
-      {/* Error alerts */}
+      {/* ALERTS */}
       {error && (
-        <div className="gd-alert gd-alert-error" role="alert">
+        <div
+          className="gd-alert gd-alert-error"
+          role="alert"
+        >
           {error}
         </div>
       )}
 
-      {!busy && financials.missingRate && (
-        <div className="gd-alert gd-alert-warning" role="alert">
-          Some exchange rates are unavailable. Financial totals
-          cannot be calculated accurately.
-        </div>
-      )}
+      {!busy &&
+        !error &&
+        financials.missingRate && (
+          <div
+            className="gd-alert gd-alert-warning"
+            role="alert"
+          >
+            Some exchange rates are unavailable.
+            Financial totals cannot be calculated accurately.
+          </div>
+        )}
 
-      {/* Sprout - Always visible */}
+      {/* SPROUT COMPANION */}
       <section className="gd-sprout-companion">
         <div className="gd-sprout-avatar">
           <Sprout size={76} />
@@ -534,6 +963,7 @@ export default function Dashboard() {
           </span>
 
           <h3>{sproutMessage.title}</h3>
+
           <p>{sproutMessage.description}</p>
         </div>
 
@@ -548,7 +978,7 @@ export default function Dashboard() {
         )}
       </section>
 
-      {/* Financial summary */}
+      {/* SUMMARY CARDS */}
       <section
         className="gd-summary-grid"
         aria-label="Financial summary"
@@ -559,30 +989,38 @@ export default function Dashboard() {
           rawValue={financials.balance}
           isAvailable={valuesAvailable}
           description="Overall income minus spending"
-          icon="◈"
+          icon="◇"
         />
 
         <SummaryCard
           label="Monthly Income"
-          value={displayMoney(financials.monthlyIncome)}
+          value={displayMoney(
+            financials.monthlyIncome
+          )}
           rawValue={financials.monthlyIncome}
           isAvailable={valuesAvailable}
           description="Money received this month"
           icon="↙"
+          comparison={incomeComparison}
         />
 
         <SummaryCard
           label="Monthly Spending"
-          value={displayMoney(financials.monthlyExpenses)}
+          value={displayMoney(
+            financials.monthlyExpenses
+          )}
           rawValue={financials.monthlyExpenses}
           isAvailable={valuesAvailable}
           description="Money spent this month"
           icon="↗"
+          comparison={expenseComparison}
         />
 
         <SummaryCard
           label="Monthly Savings"
-          value={displayMoney(financials.netSavings)}
+          value={displayMoney(
+            financials.netSavings
+          )}
           rawValue={financials.netSavings}
           isAvailable={valuesAvailable}
           description="Income minus spending this month"
@@ -590,14 +1028,17 @@ export default function Dashboard() {
         />
       </section>
 
-      {/* Financial charts */}
+      {/* FINANCIAL CHARTS */}
       <section className="gd-charts-grid">
-        {/* Monthly spending */}
+
+        {/* SPENDING ACTIVITY */}
         <article className="gd-panel">
           <div className="gd-panel-header">
             <div>
               <h2>Spending Activity</h2>
-              <p>Monthly expenses in {currentYear}</p>
+              <p>
+                Monthly expenses in {currentYear}
+              </p>
             </div>
 
             <span className="gd-panel-tag">
@@ -618,48 +1059,61 @@ export default function Dashboard() {
           ) : !hasYearlyExpenses ? (
             <EmptyState
               title="No spending to show yet"
-              description="Your spending chart will appear when you record expenses."
+              description="Your chart will appear when you record expenses."
               to="/expense"
               action="Record an expense"
             />
           ) : (
             <div
               className="gd-chart"
-              role="img"
+              role="group"
               aria-label={`Monthly spending chart for ${currentYear}`}
             >
-              {financials.monthlyTrend.map((item) => (
-                <div
-                  className="gd-chart-column"
-                  key={item.month}
-                >
-                  <div className="gd-chart-track">
-                    <div
-                      className="gd-chart-bar"
-                      style={{
-                        height: `${
-                          (item.amount / maxTrend) * 100
-                        }%`,
-                      }}
-                      title={`${item.month}: ${formatMoney(
-                        item.amount
-                      )}`}
-                    />
-                  </div>
+              {financials.monthlyTrend.map(
+                (item, index) => {
+                  const height =
+                    (item.amount / maxTrend) * 100;
 
-                  <span>{item.month}</span>
-                </div>
-              ))}
+                  return (
+                    <div
+                      className={`gd-chart-column ${
+                        index === currentMonth
+                          ? "current"
+                          : ""
+                      }`}
+                      key={item.month}
+                    >
+                      <div
+                        className="gd-chart-track"
+                        title={`${item.month}: ${formatMoney(
+                          item.amount
+                        )}`}
+                      >
+                        <div
+                          className="gd-chart-bar"
+                          style={{
+                            height: `${height}%`,
+                          }}
+                        />
+                      </div>
+
+                      <span>{item.month}</span>
+                    </div>
+                  );
+                }
+              )}
             </div>
           )}
         </article>
 
-        {/* Spending by category */}
+        {/* SPENDING CATEGORIES */}
         <article className="gd-panel">
           <div className="gd-panel-header">
             <div>
               <h2>Where Your Money Goes</h2>
-              <p>Spending by category this month</p>
+              <p>
+                Top spending categories this month
+              </p>
             </div>
 
             <Link
@@ -684,45 +1138,185 @@ export default function Dashboard() {
             <EmptyState
               title="Nothing recorded this month"
               description="Add an expense to understand your spending habits."
+              to="/expense"
+              action="Add an expense"
             />
           ) : (
             <div className="gd-categories">
-              {categoryEntries.map(([category, value]) => {
-                const percentage =
-                  financials.monthlyExpenses > 0
-                    ? (value / financials.monthlyExpenses) * 100
-                    : 0;
+              {categoryEntries.map(
+                ([category, value]) => {
+                  const percentage =
+                    financials.monthlyExpenses > 0
+                      ? (value /
+                          financials.monthlyExpenses) *
+                        100
+                      : 0;
 
-                return (
-                  <div className="gd-category" key={category}>
-                    <div className="gd-category-heading">
-                      <strong>{category}</strong>
-                      <span>{percentage.toFixed(1)}%</span>
-                    </div>
-
+                  return (
                     <div
-                      className="gd-progress-track"
-                      role="progressbar"
-                      aria-label={`${category} spending`}
-                      aria-valuenow={percentage}
-                      aria-valuemin={0}
-                      aria-valuemax={100}
+                      className="gd-category"
+                      key={category}
                     >
-                      <div
-                        className="gd-progress-fill"
-                        style={{
-                          width: `${Math.min(100, percentage)}%`,
-                        }}
-                      />
-                    </div>
+                      <div className="gd-category-heading">
+                        <strong>{category}</strong>
 
-                    <small>{formatMoney(value)}</small>
-                  </div>
-                );
-              })}
+                        <span>
+                          {percentage.toFixed(1)}%
+                        </span>
+                      </div>
+
+                      <div
+                        className="gd-progress-track"
+                        role="progressbar"
+                        aria-label={`${category} spending`}
+                        aria-valuenow={percentage}
+                        aria-valuemin={0}
+                        aria-valuemax={100}
+                      >
+                        <div
+                          className="gd-progress-fill"
+                          style={{
+                            width: `${Math.min(
+                              100,
+                              percentage
+                            )}%`,
+                          }}
+                        />
+                      </div>
+
+                      <small>
+                        {formatMoney(value)}
+                      </small>
+                    </div>
+                  );
+                }
+              )}
             </div>
           )}
         </article>
+      </section>
+
+      {/* RECENT TRANSACTIONS */}
+      <section className="gd-panel gd-recent-section">
+        <div className="gd-panel-header">
+          <div>
+            <h2>Recent Transactions</h2>
+            <p>
+              Your latest financial activity
+            </p>
+          </div>
+
+          <span className="gd-panel-tag">
+            Latest 5
+          </span>
+        </div>
+
+        {busy ? (
+          <EmptyState
+            title="Loading transactions"
+            description="Preparing your recent activity..."
+          />
+        ) : error ? (
+          <EmptyState
+            title="Transactions unavailable"
+            description="Unable to load your recent activity."
+          />
+        ) : recentTransactions.length === 0 ? (
+          <EmptyState
+            title="No transactions yet"
+            description="Start tracking your finances by adding income or expenses."
+            to="/income"
+            action="Add income"
+          />
+        ) : (
+          <div className="gd-recent-list">
+            {recentTransactions.map(
+              (item, index) => {
+                const isIncome =
+                  item.transactionType === "income";
+
+                return (
+                  <div
+                    className="gd-recent-item"
+                    key={`${item.transactionType}-${
+                      item._id || index
+                    }`}
+                  >
+                    <div className="gd-recent-left">
+                      <div
+                        className={`gd-recent-icon ${
+                          isIncome
+                            ? "income"
+                            : "expense"
+                        }`}
+                      >
+                        {isIncome ? "↙" : "↗"}
+                      </div>
+
+                      <div className="gd-recent-info">
+                        <strong>
+                          {getTransactionTitle(item)}
+                        </strong>
+
+                        <span>
+                          {formatTransactionDate(
+                            item.date || item.createdAt
+                          )}
+                          {" · "}
+                          {isIncome
+                            ? "Income"
+                            : "Expense"}
+                        </span>
+
+                        {getTransactionDescription(
+                          item
+                        ) && (
+                          <small>
+                            {getTransactionDescription(
+                              item
+                            )}
+                          </small>
+                        )}
+                      </div>
+                    </div>
+
+                    <strong
+                      className={`gd-recent-amount ${
+                        isIncome
+                          ? "income"
+                          : "expense"
+                      }`}
+                    >
+                      {getTransactionAmount(item)}
+                    </strong>
+                  </div>
+                );
+              }
+            )}
+          </div>
+        )}
+
+        <div className="gd-recent-footer">
+          <span>
+            Showing up to five recent transactions
+          </span>
+
+          <div className="gd-recent-links">
+            <Link
+              to="/income"
+              className="gd-panel-link"
+            >
+              Income
+            </Link>
+
+            <Link
+              to="/expense"
+              className="gd-panel-link"
+            >
+              Expenses
+            </Link>
+          </div>
+        </div>
       </section>
     </div>
   );

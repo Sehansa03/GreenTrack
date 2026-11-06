@@ -1,10 +1,11 @@
+
 # 🌱 GreenTrack
 
 **Personal Finance Management | MERN Stack**
 
 GreenTrack is a full-stack personal finance application for tracking income and expenses, managing budgets, and understanding financial activity through interactive analytics. It supports transactions in multiple currencies and presents consolidated summaries in the user's preferred base currency.
 
-**[Live Demo](https://green-track-pink.vercel.app/)** · **[Source Code](https://github.com/Sehansa03/GreenTrack)**
+[**Live Demo**](https://green-track-pink.vercel.app/) · [**Source Code**](https://github.com/Sehansa03/GreenTrack)
 
 ## Application Preview
 
@@ -93,7 +94,19 @@ cd backend
 npm install
 ```
 
-Create `backend/.env` and configure the MongoDB connection, JWT secret, and other required settings using the variable names referenced in the backend source code. Run the backend with the start or development script defined in `backend/package.json`.
+Create `backend/.env` and configure the MongoDB connection, JWT secret, and other required settings using the variable names referenced in the backend source code.
+
+Start the backend in development mode:
+
+```bash
+npm run dev
+```
+
+Alternatively, use:
+
+```bash
+npm start
+```
 
 ### Frontend
 
@@ -105,9 +118,10 @@ npm install
 npm run dev
 ```
 
-If required, configure the frontend API base URL using the environment variable referenced in `frontend/src/api/`. Open the local address shown by Vite.
+The frontend uses `VITE_API_URL` to configure the backend API endpoint. If this variable is not set, the default API URL is `http://localhost:5000/api`.
 
-> **Security:** Do not commit `.env` files, database credentials, or JWT secrets.
+To use a different backend URL, configure `VITE_API_URL` in `frontend/.env`. Open the local address shown by Vite.
+
 
 ## Deployment
 

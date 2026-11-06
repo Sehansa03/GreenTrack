@@ -1,7 +1,7 @@
 
 import { useState } from "react";
 import { expenseAPI } from "../../../api/expense";
-import { useCurrency } from "../../../context/CurrencyContext";
+import { useCurrency } from "../../../context//useCurrency";
 
 const categoryIcons = {
   Food: "🍽️",

@@ -16,7 +16,7 @@ export default function Register() {
     email: "",
     password: "",
     country: "Sri Lanka",
-    currency: "LKR",
+    currency: countryCurrencyMap["Sri Lanka"] || "LKR",
   });
 
   const [showPassword, setShowPassword] = useState(false);
@@ -45,6 +45,7 @@ export default function Register() {
     setErrors((prev) => ({
       ...prev,
       [name]: "",
+      ...(name === "country" ? { currency: "" } : {}),
     }));
 
     setServerError("");
@@ -62,8 +63,7 @@ export default function Register() {
     }
 
     if (form.password.length < 8) {
-      next.password =
-        "Password must contain at least 8 characters.";
+      next.password = "Password must contain at least 8 characters.";
     }
 
     if (!form.country) {
@@ -122,9 +122,6 @@ export default function Register() {
       onClick={handleBackgroundClick}
     >
       <div className="gt-auth-wrap">
-
-        
-
         <div className="gt-auth-brand">
           <GreenTrackLogo />
         </div>
@@ -144,7 +141,6 @@ export default function Register() {
           )}
 
           <form onSubmit={handleSubmit} noValidate>
-
             <div className="gt-auth-field">
               <label htmlFor="reg-name">
                 Full name
@@ -199,11 +195,7 @@ export default function Register() {
                 <input
                   id="reg-password"
                   className="gt-auth-input"
-                  type={
-                    showPassword
-                      ? "text"
-                      : "password"
-                  }
+                  type={showPassword ? "text" : "password"}
                   name="password"
                   value={form.password}
                   onChange={handleChange}
@@ -214,9 +206,7 @@ export default function Register() {
                 <button
                   type="button"
                   className="gt-auth-toggle"
-                  onClick={() =>
-                    setShowPassword((prev) => !prev)
-                  }
+                  onClick={() => setShowPassword((prev) => !prev)}
                 >
                   {showPassword ? "Hide" : "Show"}
                 </button>
@@ -247,10 +237,7 @@ export default function Register() {
                 onChange={handleChange}
               >
                 {countries.map((country) => (
-                  <option
-                    key={country}
-                    value={country}
-                  >
+                  <option key={country} value={country}>
                     {country}
                   </option>
                 ))}
@@ -286,10 +273,7 @@ export default function Register() {
                       : currency.code;
 
                   return (
-                    <option
-                      key={code}
-                      value={code}
-                    >
+                    <option key={code} value={code}>
                       {code}
                     </option>
                   );
@@ -317,7 +301,6 @@ export default function Register() {
                 ? "Creating account..."
                 : "Create account →"}
             </button>
-
           </form>
         </div>
 
@@ -327,7 +310,6 @@ export default function Register() {
             Sign in
           </Link>
         </p>
-
       </div>
     </main>
   );

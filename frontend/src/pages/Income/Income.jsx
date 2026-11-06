@@ -7,7 +7,7 @@ import IncomeChart from "./income_components/IncomeChart";
 import IncomeFilter from "./income_components/IncomeFilter";
 import IncomeSummary from "./income_components/IncomeSummary";
 
-import { useCurrency } from "../../context/CurrencyContext";
+import { useCurrency } from "../../context/useCurrency";
 import { incomeAPI } from "../../api/income";
 import "./Income.css";
 
@@ -37,10 +37,12 @@ export default function Income() {
 
   const currencyLoading = profileLoading || ratesLoading;
 
+  // Fetch income records for initial loading and manual refresh.
   const fetchIncomes = async () => {
-    try {
-      setFetchError("");
+    setFetching(true);
+    setFetchError("");
 
+    try {
       const res = await incomeAPI.getAll();
       const payload = res.data?.data ?? res.data;
 
@@ -57,10 +59,44 @@ export default function Income() {
     }
   };
 
+  // Initial data loading
   useEffect(() => {
-    fetchIncomes();
+    let active = true;
+
+    const loadInitialIncomes = async () => {
+      try {
+        const res = await incomeAPI.getAll();
+
+        if (!active) return;
+
+        const payload = res.data?.data ?? res.data;
+
+        const records = Array.isArray(payload)
+          ? payload
+          : payload?.incomes ?? [];
+
+        setIncomes(records);
+        setFetchError("");
+      } catch (err) {
+        if (!active) return;
+
+        console.error("Failed to fetch incomes:", err);
+        setFetchError("Unable to load income records.");
+      } finally {
+        if (active) {
+          setFetching(false);
+        }
+      }
+    };
+
+    void loadInitialIncomes();
+
+    return () => {
+      active = false;
+    };
   }, []);
 
+  // Filter income records
   const filteredIncomes = useMemo(() => {
     return incomes.filter((income) => {
       const sourceMatch = (income.source || "")
@@ -90,6 +126,7 @@ export default function Income() {
     });
   }, [incomes, filters, baseCurrency]);
 
+  // Calculate total income in preferred currency
   const totalIncome = useMemo(() => {
     return filteredIncomes.reduce((sum, income) => {
       const converted = convertAmount(
@@ -99,14 +136,16 @@ export default function Income() {
 
       const numeric = Number(converted);
 
-      return sum + (
-        converted != null && Number.isFinite(numeric)
+      return (
+        sum +
+        (converted != null && Number.isFinite(numeric)
           ? numeric
-          : 0
+          : 0)
       );
     }, 0);
   }, [filteredIncomes, convertAmount, baseCurrency]);
 
+  // Count records without available exchange rates
   const unavailableRateCount = useMemo(() => {
     return filteredIncomes.filter(
       (income) => !hasRate(income.currency || baseCurrency)
@@ -120,21 +159,25 @@ export default function Income() {
     filters.to,
   ].filter(Boolean).length;
 
+  // Edit income
   const handleEdit = (income) => {
     setEditData(income);
     setShowModal(true);
   };
 
+  // Close income modal
   const handleClose = () => {
     setShowModal(false);
     setEditData(null);
   };
 
+  // Refresh records after saving
   const handleSaved = async () => {
     handleClose();
     await fetchIncomes();
   };
 
+  // Remove deleted income from state
   const handleDeleted = (id) => {
     setIncomes((previous) =>
       previous.filter((income) => income._id !== id)

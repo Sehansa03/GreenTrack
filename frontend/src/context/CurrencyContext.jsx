@@ -1,7 +1,6 @@
+
 import {
-  createContext,
   useCallback,
-  useContext,
   useEffect,
   useMemo,
   useRef,
@@ -10,19 +9,23 @@ import {
 
 import { authAPI } from "../api/auth";
 import { currencyAPI } from "../api/currency";
-
-const CurrencyContext = createContext(null);
+import { CurrencyContext } from "./CurrencyContextBase";
 
 export function CurrencyProvider({ children }) {
   const [currency, setCurrency] = useState("LKR");
   const [rates, setRates] = useState({ LKR: 1 });
-  const [loading, setLoading] = useState(true);
+
+  // No profile request is needed if there is no token.
+  const [loading, setLoading] = useState(
+    () => Boolean(localStorage.getItem("token"))
+  );
+
   const [ratesLoading, setRatesLoading] = useState(false);
   const [currencyError, setCurrencyError] = useState("");
 
   const requestIdRef = useRef(0);
+  const profileRequestIdRef = useRef(0);
 
-  // Fetch exchange rates for the selected base currency
   const fetchRates = useCallback(async (baseCurrency) => {
     const selectedCurrency = String(
       baseCurrency || "LKR"
@@ -35,7 +38,6 @@ export function CurrencyProvider({ children }) {
 
     try {
       const response = await currencyAPI.getRates(selectedCurrency);
-
       const fetchedRates = response.data?.rates || {};
 
       const normalizedRates = {
@@ -71,12 +73,17 @@ export function CurrencyProvider({ children }) {
     }
   }, []);
 
-  // Load currency from the user's saved profile
   const refreshCurrency = useCallback(async () => {
+    const profileRequestId = ++profileRequestIdRef.current;
+
     setLoading(true);
 
     try {
       const response = await authAPI.getProfile();
+
+      if (profileRequestId !== profileRequestIdRef.current) {
+        return null;
+      }
 
       const savedCurrency = String(
         response.data?.currency ||
@@ -91,30 +98,59 @@ export function CurrencyProvider({ children }) {
 
       return savedCurrency;
     } catch (error) {
-      console.error("Failed to load preferred currency:", error);
+      if (profileRequestId === profileRequestIdRef.current) {
+        console.error("Failed to load preferred currency:", error);
+      }
+
       return null;
     } finally {
-      setLoading(false);
+      if (profileRequestId === profileRequestIdRef.current) {
+        setLoading(false);
+      }
     }
   }, [fetchRates]);
 
-  // Load the profile when the application starts
-  useEffect(() => {
-    if (!localStorage.getItem("token")) {
-      setLoading(false);
-      return;
+  // Load saved profile currency when the provider mounts.
+
+useEffect(() => {
+  if (!localStorage.getItem("token")) {
+    return;
+  }
+
+  // Schedule the async profile refresh outside
+  // the synchronous effect execution.
+  const controller = new AbortController();
+
+  const loadInitialCurrency = async () => {
+    if (controller.signal.aborted) return;
+
+    await refreshCurrency();
+  };
+
+  Promise.resolve().then(() => {
+    if (!controller.signal.aborted) {
+      void loadInitialCurrency();
     }
+  });
 
-    refreshCurrency();
-  }, [refreshCurrency]);
+  return () => {
+    controller.abort();
+    profileRequestIdRef.current += 1;
+    requestIdRef.current += 1;
+  };
+}, [refreshCurrency]);
 
-  // Update global currency after profile is saved
+
   const updatePreferredCurrency = useCallback(
     async (newCurrency) => {
       const selectedCurrency = String(
         newCurrency || "LKR"
       ).toUpperCase();
 
+      // Invalidate any older profile request.
+      profileRequestIdRef.current += 1;
+
+      setLoading(false);
       setCurrency(selectedCurrency);
       setRates({ [selectedCurrency]: 1 });
 
@@ -123,7 +159,6 @@ export function CurrencyProvider({ children }) {
     [fetchRates]
   );
 
-  // Convert transaction amount into preferred currency
   const convertAmount = useCallback(
     (amount, sourceCurrency) => {
       const numericAmount = Number(amount);
@@ -151,7 +186,6 @@ export function CurrencyProvider({ children }) {
     [currency, rates]
   );
 
-  // Format amount in the selected preferred currency
   const formatAmount = useCallback(
     (amount, sourceCurrency) => {
       const convertedAmount = convertAmount(
@@ -174,7 +208,6 @@ export function CurrencyProvider({ children }) {
     [convertAmount, currency]
   );
 
-  // Check whether a conversion rate exists
   const hasRate = useCallback(
     (sourceCurrency) => {
       const source = String(
@@ -226,16 +259,4 @@ export function CurrencyProvider({ children }) {
       {children}
     </CurrencyContext.Provider>
   );
-}
-
-export function useCurrency() {
-  const context = useContext(CurrencyContext);
-
-  if (!context) {
-    throw new Error(
-      "useCurrency must be used inside CurrencyProvider"
-    );
-  }
-
-  return context;
 }

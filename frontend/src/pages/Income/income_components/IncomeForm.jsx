@@ -3,13 +3,27 @@ import { useEffect, useState } from "react";
 import { incomeAPI } from "../../../api/income";
 import { currencies } from "../../../data/currencies";
 
+// Get today's date in local time
 const today = () => {
   const date = new Date();
+
   const local = new Date(
     date.getTime() - date.getTimezoneOffset() * 60000
   );
+
   return local.toISOString().slice(0, 10);
 };
+
+// Create initial form values
+const getInitialForm = (editData, defaultCurrency) => ({
+  amount: editData?.amount ?? "",
+  source: editData?.source ?? "Salary",
+  date: editData?.date
+    ? String(editData.date).slice(0, 10)
+    : today(),
+  description: editData?.description ?? "",
+  currency: editData?.currency ?? defaultCurrency,
+});
 
 export default function IncomeForm({
   onClose,
@@ -19,31 +33,15 @@ export default function IncomeForm({
 }) {
   const isEdit = Boolean(editData);
 
-  const [form, setForm] = useState({
-    amount: "",
-    source: "Salary",
-    date: today(),
-    description: "",
-    currency: defaultCurrency,
-  });
+  // Initialize form from existing record or defaults
+  const [form, setForm] = useState(() =>
+    getInitialForm(editData, defaultCurrency)
+  );
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  useEffect(() => {
-    if (editData) {
-      setForm({
-        amount: editData.amount ?? "",
-        source: editData.source ?? "Salary",
-        date: editData.date
-          ? String(editData.date).slice(0, 10)
-          : today(),
-        description: editData.description ?? "",
-        currency: editData.currency ?? defaultCurrency,
-      });
-    }
-  }, [editData, defaultCurrency]);
-
+  // Close modal using Escape key
   useEffect(() => {
     const handleEscape = (event) => {
       if (event.key === "Escape" && !loading) {
@@ -53,13 +51,12 @@ export default function IncomeForm({
 
     document.addEventListener("keydown", handleEscape);
 
-    return () =>
-      document.removeEventListener(
-        "keydown",
-        handleEscape
-      );
+    return () => {
+      document.removeEventListener("keydown", handleEscape);
+    };
   }, [onClose, loading]);
 
+  // Handle form input changes
   const handleChange = (event) => {
     const { name, value } = event.target;
 
@@ -69,6 +66,7 @@ export default function IncomeForm({
     }));
   };
 
+  // Submit new or updated income
   const handleSubmit = async (event) => {
     event.preventDefault();
 
@@ -127,7 +125,10 @@ export default function IncomeForm({
     <div
       className="gt-income-modal-overlay"
       onMouseDown={(event) => {
-        if (event.target === event.currentTarget && !loading) {
+        if (
+          event.target === event.currentTarget &&
+          !loading
+        ) {
           onClose();
         }
       }}
@@ -138,6 +139,7 @@ export default function IncomeForm({
         aria-modal="true"
         aria-labelledby="gt-income-modal-title"
       >
+        {/* Modal header */}
         <div className="gt-income-modal-header">
           <div>
             <p className="gt-income-modal-eyebrow">
@@ -166,17 +168,23 @@ export default function IncomeForm({
           </button>
         </div>
 
+        {/* Error message */}
         {error && (
-          <div className="gt-income-form-error" role="alert">
+          <div
+            className="gt-income-form-error"
+            role="alert"
+          >
             {error}
           </div>
         )}
 
+        {/* Income form */}
         <form
           className="gt-income-form"
           onSubmit={handleSubmit}
         >
           <div className="gt-income-form-grid">
+            {/* Amount */}
             <div className="gt-income-field">
               <label htmlFor="income-amount">
                 Amount
@@ -195,6 +203,7 @@ export default function IncomeForm({
               />
             </div>
 
+            {/* Currency */}
             <div className="gt-income-field">
               <label htmlFor="income-currency">
                 Currency
@@ -217,6 +226,7 @@ export default function IncomeForm({
               </select>
             </div>
 
+            {/* Income source */}
             <div className="gt-income-field">
               <label htmlFor="income-source">
                 Income source
@@ -248,6 +258,7 @@ export default function IncomeForm({
               </select>
             </div>
 
+            {/* Date */}
             <div className="gt-income-field">
               <label htmlFor="income-date">
                 Date
@@ -264,6 +275,7 @@ export default function IncomeForm({
             </div>
           </div>
 
+          {/* Description */}
           <div className="gt-income-field">
             <label htmlFor="income-notes">
               Notes <span>(optional)</span>
@@ -279,6 +291,7 @@ export default function IncomeForm({
             />
           </div>
 
+          {/* Form actions */}
           <div className="gt-income-modal-footer">
             <button
               type="button"
@@ -297,8 +310,8 @@ export default function IncomeForm({
               {loading
                 ? "Saving..."
                 : isEdit
-                ? "Save Changes"
-                : "Add Income"}
+                  ? "Save Changes"
+                  : "Add Income"}
             </button>
           </div>
         </form>

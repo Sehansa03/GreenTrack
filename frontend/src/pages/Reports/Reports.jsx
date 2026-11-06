@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { incomeAPI } from "../../api/income";
 import { expenseAPI } from "../../api/expense";
 import { authAPI } from "../../api/auth";
-import { useCurrency } from "../../context/CurrencyContext";
+import { useCurrency } from "../../context//useCurrency";
 import { exportReportPDF } from "./exportReportPDF";
 import "./Reports.css";
 

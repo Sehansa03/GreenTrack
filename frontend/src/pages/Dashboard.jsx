@@ -9,11 +9,6 @@ import { useCurrency } from "../context/CurrencyContext";
 
 import "./Dashboard.css";
 
-const MONTHS = [
-  "Jan", "Feb", "Mar", "Apr", "May", "Jun",
-  "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
-];
-
 /* ============================================
    DATE AND DATA HELPERS
 ============================================ */
@@ -187,6 +182,7 @@ function SummaryCard({
   icon,
   comparison,
   isAvailable = true,
+  tone = "default",
 }) {
   const isNegative =
     isAvailable &&
@@ -198,7 +194,7 @@ function SummaryCard({
     <article
       className={`gd-summary-card ${
         isNegative ? "gd-value-negative" : ""
-      }`}
+      } gd-tone-${tone}`}
     >
       <div className="gd-summary-top">
         <span>{label}</span>
@@ -297,6 +293,7 @@ export default function Dashboard() {
   const now = new Date();
   const currentYear = now.getFullYear();
   const currentMonth = now.getMonth();
+  const currentMonthShort = now.toLocaleString("en-US", { month: "short" });
 
   const previousMonthDate = new Date(
     currentYear,
@@ -500,13 +497,6 @@ export default function Dashboard() {
     let previousIncome = 0;
     let previousExpenses = 0;
 
-    const categoryTotals = {};
-
-    const monthlyTrend = MONTHS.map((month) => ({
-      month,
-      amount: 0,
-    }));
-
     incomes.forEach((income) => {
       const originalCurrency =
         income.currency || baseCurrency;
@@ -588,12 +578,6 @@ export default function Dashboard() {
         )
       ) {
         monthlyExpenses += amount;
-
-        const category =
-          expense.category || "Other";
-
-        categoryTotals[category] =
-          (categoryTotals[category] || 0) + amount;
       }
 
       if (
@@ -605,15 +589,6 @@ export default function Dashboard() {
       ) {
         previousExpenses += amount;
       }
-
-      const parts = getDateParts(expense.date);
-
-      if (
-        parts &&
-        parts.year === currentYear
-      ) {
-        monthlyTrend[parts.month].amount += amount;
-      }
     });
 
     return {
@@ -624,8 +599,6 @@ export default function Dashboard() {
         monthlyIncome - monthlyExpenses,
       previousIncome,
       previousExpenses,
-      categoryTotals,
-      monthlyTrend,
       missingRate,
     };
   }, [
@@ -749,23 +722,49 @@ export default function Dashboard() {
     !error &&
     !financials.missingRate;
 
-  const categoryEntries = Object.entries(
-    financials.categoryTotals
-  )
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 5);
+  // Build six consecutive calendar months, including the current month.
+  // Use the same base-currency conversion as the summary cards.
+  const incomeExpenseTrend = useMemo(() => {
+    const months = Array.from({ length: 6 }, (_, index) => {
+      const date = new Date(currentYear, currentMonth - (5 - index), 1);
+      return {
+        key: `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`,
+        label: date.toLocaleDateString("en-US", { month: "short" }),
+        year: date.getFullYear(),
+        income: 0,
+        expense: 0,
+      };
+    });
 
-  const maxTrend = Math.max(
+    const byMonth = new Map(months.map((item) => [item.key, item]));
+
+    const accumulate = (records, field) => {
+      records.forEach((record) => {
+        const parts = getDateParts(record.date);
+        if (!parts) return;
+        const key = `${parts.year}-${String(parts.month + 1).padStart(2, "0")}`;
+        const month = byMonth.get(key);
+        if (!month) return;
+        const originalCurrency = record.currency || baseCurrency;
+        if (!hasRate(originalCurrency)) return;
+        const converted = convertAmount(record.amount, originalCurrency);
+        if (converted == null || !Number.isFinite(Number(converted))) return;
+        month[field] += Number(converted);
+      });
+    };
+
+    accumulate(incomes, "income");
+    accumulate(expenses, "expense");
+    return months;
+  }, [incomes, expenses, baseCurrency, convertAmount, hasRate, currentYear, currentMonth]);
+
+  const maxChartValue = Math.max(
     1,
-    ...financials.monthlyTrend.map(
-      (item) => item.amount
-    )
+    ...incomeExpenseTrend.flatMap((item) => [item.income, item.expense])
   );
-
-  const hasYearlyExpenses =
-    financials.monthlyTrend.some(
-      (item) => item.amount > 0
-    );
+  const hasChartActivity = incomeExpenseTrend.some(
+    (item) => item.income !== 0 || item.expense !== 0
+  );
 
   function greeting() {
     const hour = new Date().getHours();
@@ -993,7 +992,8 @@ export default function Dashboard() {
         />
 
         <SummaryCard
-          label="Monthly Income"
+          label={`Monthly Income (${currentMonthShort})`}
+          tone="income"
           value={displayMoney(
             financials.monthlyIncome
           )}
@@ -1005,7 +1005,8 @@ export default function Dashboard() {
         />
 
         <SummaryCard
-          label="Monthly Spending"
+          label={`Monthly Spending (${currentMonthShort})`}
+          tone="expense"
           value={displayMoney(
             financials.monthlyExpenses
           )}
@@ -1017,7 +1018,8 @@ export default function Dashboard() {
         />
 
         <SummaryCard
-          label="Monthly Savings"
+          label={`Monthly Savings (${currentMonthShort})`}
+          tone="savings"
           value={displayMoney(
             financials.netSavings
           )}
@@ -1028,170 +1030,66 @@ export default function Dashboard() {
         />
       </section>
 
-      {/* FINANCIAL CHARTS */}
-      <section className="gd-charts-grid">
-
-        {/* SPENDING ACTIVITY */}
-        <article className="gd-panel">
+      {/* INCOME AND SPENDING — REAL DATA, LAST SIX MONTHS */}
+      <section className="gd-income-expense-section" aria-label="Income and spending trend">
+        <article className="gd-panel gd-income-expense-panel">
           <div className="gd-panel-header">
             <div>
-              <h2>Spending Activity</h2>
-              <p>
-                Monthly expenses in {currentYear}
-              </p>
+              <h2>Income &amp; Spending</h2>
+              <p>Monthly financial activity in {baseCurrency}</p>
             </div>
-
-            <span className="gd-panel-tag">
-              {baseCurrency}
-            </span>
+            <span className="gd-panel-tag">Last 6 months</span>
           </div>
 
           {busy ? (
             <EmptyState
-              title="Loading your activity"
-              description="Preparing your financial overview..."
+              title="Loading financial activity"
+              description="Preparing your income and spending chart..."
             />
           ) : error || financials.missingRate ? (
             <EmptyState
               title="Chart unavailable"
-              description="Financial data could not be calculated."
+              description="Financial data could not be calculated accurately."
             />
-          ) : !hasYearlyExpenses ? (
+          ) : !hasChartActivity ? (
             <EmptyState
-              title="No spending to show yet"
-              description="Your chart will appear when you record expenses."
-              to="/expense"
-              action="Record an expense"
+              title="No activity in the last six months"
+              description="Record income or expenses to see your monthly comparison."
+              to="/income"
+              action="Add income"
             />
           ) : (
-            <div
-              className="gd-chart"
-              role="group"
-              aria-label={`Monthly spending chart for ${currentYear}`}
-            >
-              {financials.monthlyTrend.map(
-                (item, index) => {
-                  const height =
-                    (item.amount / maxTrend) * 100;
-
-                  return (
-                    <div
-                      className={`gd-chart-column ${
-                        index === currentMonth
-                          ? "current"
-                          : ""
-                      }`}
-                      key={item.month}
-                    >
+            <>
+              <div
+                className="gd-dual-chart"
+                role="group"
+                aria-label={`Income and expenses for the last six months in ${baseCurrency}`}
+              >
+                {incomeExpenseTrend.map((item) => (
+                  <div className="gd-dual-month" key={item.key}>
+                    <div className="gd-dual-bars">
                       <div
-                        className="gd-chart-track"
-                        title={`${item.month}: ${formatMoney(
-                          item.amount
-                        )}`}
-                      >
-                        <div
-                          className="gd-chart-bar"
-                          style={{
-                            height: `${height}%`,
-                          }}
-                        />
-                      </div>
-
-                      <span>{item.month}</span>
-                    </div>
-                  );
-                }
-              )}
-            </div>
-          )}
-        </article>
-
-        {/* SPENDING CATEGORIES */}
-        <article className="gd-panel">
-          <div className="gd-panel-header">
-            <div>
-              <h2>Where Your Money Goes</h2>
-              <p>
-                Top spending categories this month
-              </p>
-            </div>
-
-            <Link
-              to="/charts"
-              className="gd-panel-link"
-            >
-              Analytics →
-            </Link>
-          </div>
-
-          {busy ? (
-            <EmptyState
-              title="Loading categories"
-              description="Preparing your spending breakdown..."
-            />
-          ) : error || financials.missingRate ? (
-            <EmptyState
-              title="Breakdown unavailable"
-              description="Financial data could not be calculated."
-            />
-          ) : categoryEntries.length === 0 ? (
-            <EmptyState
-              title="Nothing recorded this month"
-              description="Add an expense to understand your spending habits."
-              to="/expense"
-              action="Add an expense"
-            />
-          ) : (
-            <div className="gd-categories">
-              {categoryEntries.map(
-                ([category, value]) => {
-                  const percentage =
-                    financials.monthlyExpenses > 0
-                      ? (value /
-                          financials.monthlyExpenses) *
-                        100
-                      : 0;
-
-                  return (
-                    <div
-                      className="gd-category"
-                      key={category}
-                    >
-                      <div className="gd-category-heading">
-                        <strong>{category}</strong>
-
-                        <span>
-                          {percentage.toFixed(1)}%
-                        </span>
-                      </div>
-
+                        className="gd-dual-bar gd-dual-income"
+                        style={{ height: `${Math.max(0, item.income / maxChartValue * 100)}%` }}
+                        title={`${item.label} ${item.year} income: ${formatMoney(item.income)}`}
+                        aria-label={`${item.label} income ${formatMoney(item.income)}`}
+                      />
                       <div
-                        className="gd-progress-track"
-                        role="progressbar"
-                        aria-label={`${category} spending`}
-                        aria-valuenow={percentage}
-                        aria-valuemin={0}
-                        aria-valuemax={100}
-                      >
-                        <div
-                          className="gd-progress-fill"
-                          style={{
-                            width: `${Math.min(
-                              100,
-                              percentage
-                            )}%`,
-                          }}
-                        />
-                      </div>
-
-                      <small>
-                        {formatMoney(value)}
-                      </small>
+                        className="gd-dual-bar gd-dual-expense"
+                        style={{ height: `${Math.max(0, item.expense / maxChartValue * 100)}%` }}
+                        title={`${item.label} ${item.year} expenses: ${formatMoney(item.expense)}`}
+                        aria-label={`${item.label} expenses ${formatMoney(item.expense)}`}
+                      />
                     </div>
-                  );
-                }
-              )}
-            </div>
+                    <span>{item.label}</span>
+                  </div>
+                ))}
+              </div>
+              <div className="gd-dual-legend" aria-label="Chart legend">
+                <span><i className="gd-dual-legend-income" />Income</span>
+                <span><i className="gd-dual-legend-expense" />Expenses</span>
+              </div>
+            </>
           )}
         </article>
       </section>

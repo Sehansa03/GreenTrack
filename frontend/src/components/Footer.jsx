@@ -1,63 +1,70 @@
-export default function Footer() {
-  const year = new Date().getFullYear();
 
+import { Link } from "react-router-dom";
+import "./Footer.css";
+
+export default function Footer() {
   return (
-    <>
-      {/* ── Footer ───────────────────────────────────────────── */}
-      <footer
-        style={{
-          borderTop: "1px solid rgba(255,255,255,0.06)",
-          padding: "40px 24px",
-          background: "#080d0b",
-        }}
-      >
-        <div
-          style={{
-            maxWidth: 1100,
-            margin: "0 auto",
-            display: "flex",
-            flexWrap: "wrap",
-            gap: 24,
-            alignItems: "center",
-            justifyContent: "space-between",
-          }}
-        >
-          {/* Brand */}
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <span style={{ fontSize: 18 }}>🌿</span>
-            <span style={{ fontWeight: 700, fontSize: 16 }}>
-              Green<span style={{ color: "#4ade80" }}>Track</span>
+    <footer className="gt-footer">
+      <div className="gt-footer-container">
+
+        <div className="gt-footer-top">
+          <div className="gt-footer-identity">
+            <span className="gt-footer-symbol">
+              <svg
+                viewBox="0 0 64 64"
+                width="20"
+                height="20"
+                fill="none"
+                aria-hidden="true"
+              >
+                <path
+                  d="M32 50V27"
+                  stroke="currentColor"
+                  strokeWidth="5"
+                  strokeLinecap="round"
+                />
+                <path
+                  d="M31 33C19 33 13 26 13 16C24 16 31 22 31 33Z"
+                  fill="currentColor"
+                />
+                <path
+                  d="M33 29C33 18 40 12 51 12C51 23 44 29 33 29Z"
+                  fill="currentColor"
+                />
+                <path
+                  d="M22 51H42"
+                  stroke="currentColor"
+                  strokeWidth="4"
+                  strokeLinecap="round"
+                />
+              </svg>
+            </span>
+            <span className="gt-footer-name">
+              Green<span>Track</span>
             </span>
           </div>
 
-          {/* Copyright */}
-          <p style={{ fontSize: 13, color: "rgba(255,255,255,0.3)", margin: 0 }}>
-            Built with 💚 by Sehansa · Advanced Expense Tracker · © {year}
-          </p>
-
-          {/* Links */}
-          <div style={{ display: "flex", gap: 24 }}>
-            {["Privacy", "Terms", "Contact"].map((l) => (
-              <a
-                key={l}
-                href="#"
-                style={{
-                  fontSize: 13,
-                  color: "rgba(255,255,255,0.35)",
-                  textDecoration: "none",
-                  transition: "color 0.2s",
-                }}
-                onMouseEnter={(e) => (e.target.style.color = "#fff")}
-                onMouseLeave={(e) =>
-                  (e.target.style.color = "rgba(255,255,255,0.35)")
-                }
-              >
-                {l}
-              </a>
-            ))}
-          </div>
+          <nav className="gt-footer-nav" aria-label="Footer navigation">
+            <a href="/#features">Features</a>
+            <a href="/#how-it-works">How it works</a>
+            <a href="/#about">About</a>
+            <Link to="/login">Sign in</Link>
+            <Link to="/register">Get started</Link>
+          </nav>
         </div>
-      </footer>
-    </>
+
+        <div className="gt-footer-bottom">
+          <span>
+            © {new Date().getFullYear()} GreenTrack.
+            All rights reserved.
+          </span>
+
+          <span className="gt-footer-message">
+            Track smarter. Grow better.
+          </span>
+        </div>
+
+      </div>
+    </footer>
   );
 }

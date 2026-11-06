@@ -770,3 +770,94 @@
     transition: none;
   }
 }
+
+/* ============================================
+   INCOME & SPENDING — SIX MONTH COMPARISON
+============================================ */
+.gd-income-expense-section { width: 100%; }
+.gd-income-expense-panel { width: 100%; }
+.gd-dual-chart {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 30px;
+  height: 224px;
+}
+.gd-dual-month {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  color: #93A29A;
+  font-size: 12px;
+}
+.gd-dual-bars {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 7px;
+  width: 100%;
+  height: 190px;
+  border-bottom: 1px solid #28342D;
+}
+.gd-dual-bar {
+  width: min(32%, 42px);
+  min-width: 0;
+  border-radius: 6px 6px 0 0;
+  transition: height 250ms ease, filter 180ms ease;
+}
+.gd-dual-bar:hover { filter: brightness(1.2); }
+.gd-dual-income { background: #258457; }
+.gd-dual-expense { background: #526A5D; }
+.gd-dual-legend {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 24px;
+  margin-top: 24px;
+  color: #93A29A;
+  font-size: 12px;
+}
+.gd-dual-legend span { display: inline-flex; align-items: center; gap: 8px; }
+.gd-dual-legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; }
+.gd-dual-legend-income { background: #258457; }
+.gd-dual-legend-expense { background: #526A5D; }
+@media (max-width: 600px) {
+  .gd-dual-chart { height: 180px; gap: 5px; margin-top: 24px; }
+  .gd-dual-bars { height: 150px; gap: 3px; }
+  .gd-dual-month { font-size: 10px; gap: 10px; }
+  .gd-dual-bar { width: 37%; border-radius: 4px 4px 0 0; }
+  .gd-dual-legend { margin-top: 18px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .gd-dual-bar { transition: none; }
+}
+
+
+/* ==========================================
+   GREENTRACK DASHBOARD SUMMARY CARD COLORS
+   ========================================== */
+
+/* Monthly Income - Green */
+.gd-summary-card.gd-tone-income .gd-summary-value,
+.gd-summary-card.gd-tone-income .gd-summary-icon {
+  color: #35B978;
+}
+
+/* Monthly Spending - Red */
+.gd-summary-card.gd-tone-expense .gd-summary-value,
+.gd-summary-card.gd-tone-expense .gd-summary-icon {
+  color: #F87171;
+}
+
+/* Monthly Savings - Green when positive */
+.gd-summary-card.gd-tone-savings:not(.gd-value-negative) .gd-summary-value {
+  color: #35B978;
+}
+
+/* Monthly Savings - Red when negative */
+.gd-summary-card.gd-tone-savings.gd-value-negative .gd-summary-value {
+  color: #F87171;
+}
+

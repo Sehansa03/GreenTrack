@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from "react";
 import { budgetAPI } from "../../../api/budget";
 import { useCurrency } from "../../../context/CurrencyContext";
@@ -13,8 +14,25 @@ const categories = [
   "Other",
 ];
 
-const BudgetForm = ({ editData, onClose, onSuccess }) => {
+const months = [
+  "January", "February", "March", "April",
+  "May", "June", "July", "August",
+  "September", "October", "November", "December",
+];
+
+export default function BudgetForm({
+  editData,
+  onClose,
+  onSuccess,
+}) {
   const isEditing = Boolean(editData);
+
+  const { currency: baseCurrency } = useCurrency();
+
+  const originalCurrency =
+    editData?.originalCurrency ||
+    editData?.currency ||
+    baseCurrency;
 
   const [formData, setFormData] = useState({
     category: "",
@@ -24,128 +42,88 @@ const BudgetForm = ({ editData, onClose, onSuccess }) => {
     month: new Date().getMonth() + 1,
   });
 
-  const { currency: baseCurrency, convertAmount } = useCurrency();
-  const originalCurrency = editData?.originalCurrency || editData?.currency || baseCurrency;
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
 
-  // ========================================
-  // LOAD EDIT DATA
-  // ========================================
   useEffect(() => {
     if (editData) {
       setFormData({
         category: editData.category || "",
         amount: editData.amount ?? "",
         budgetType: editData.budgetType || "monthly",
-        year:
-          editData.year ||
-          new Date().getFullYear(),
-        month:
-          editData.month ||
-          new Date().getMonth() + 1,
+        year: editData.year || new Date().getFullYear(),
+        month: editData.month || new Date().getMonth() + 1,
       });
     }
   }, [editData]);
 
-  // ========================================
-  // HANDLE INPUT
-  // ========================================
   const handleChange = (e) => {
     const { name, value } = e.target;
 
-    setFormData((prev) => ({
-      ...prev,
+    setFormData((previous) => ({
+      ...previous,
       [name]: value,
     }));
   };
 
-  // ========================================
-  // SUBMIT
-  // ========================================
   const handleSubmit = async (e) => {
     e.preventDefault();
-
     setError("");
-    setSuccess("");
 
-    if (!formData.amount || Number(formData.amount) <= 0) {
+    const amount = Number(formData.amount);
+
+    if (
+      formData.amount === "" ||
+      !Number.isFinite(amount) ||
+      amount <= 0
+    ) {
       setError("Please enter a valid budget amount.");
       return;
     }
 
-    setLoading(true);
+    if (!isEditing && !formData.category) {
+      setError("Please select a category.");
+      return;
+    }
+
+    const year = Number(formData.year);
+
+    if (
+      !isEditing &&
+      (!Number.isInteger(year) || year < 2020 || year > 2100)
+    ) {
+      setError("Please enter a valid year.");
+      return;
+    }
 
     try {
-      // ========================================
-      // EDIT EXISTING BUDGET
-      // ONLY UPDATE AMOUNT
-      // ========================================
+      setLoading(true);
+
       if (isEditing) {
+        // Update the stored amount in its original currency.
         await budgetAPI.update(editData._id, {
-          amount: Number(formData.amount),
+          amount,
         });
-
-        setSuccess("Budget amount updated successfully.");
-      }
-
-      // ========================================
-      // CREATE NEW BUDGET
-      // ========================================
-      else {
-        if (!formData.category) {
-          setError("Please select a category.");
-          setLoading(false);
-          return;
-        }
-
-        if (!formData.year) {
-          setError("Please select a year.");
-          setLoading(false);
-          return;
-        }
-
-        if (
-          formData.budgetType === "monthly" &&
-          !formData.month
-        ) {
-          setError("Please select a month.");
-          setLoading(false);
-          return;
-        }
-
-        const data = {
+      } else {
+        await budgetAPI.create({
           category: formData.category,
-          amount: Number(formData.amount),
-
-          // Budget always uses user's
-          // registered/base currency.
+          amount,
           currency: baseCurrency,
-
           budgetType: formData.budgetType,
-          year: Number(formData.year),
-
+          year,
           month:
             formData.budgetType === "monthly"
               ? Number(formData.month)
               : undefined,
-        };
-
-        await budgetAPI.create(data);
-
-        setSuccess("Budget created successfully.");
+        });
       }
 
-      setTimeout(() => {
-        onSuccess();
-      }, 500);
-
-    } catch (error) {
-      console.error("Budget save error:", error);
+      onSuccess();
+    } catch (err) {
+      console.error("Budget save error:", err);
 
       setError(
-        error.response?.data?.message ||
+        err.response?.data?.message ||
           "Failed to save budget."
       );
     } finally {
@@ -153,210 +131,81 @@ const BudgetForm = ({ editData, onClose, onSuccess }) => {
     }
   };
 
-  // ========================================
-  // MONTHS
-  // ========================================
-  const months = [
-    "January",
-    "February",
-    "March",
-    "April",
-    "May",
-    "June",
-    "July",
-    "August",
-    "September",
-    "October",
-    "November",
-    "December",
-  ];
-
   return (
-    <div
-      style={{
-        position: "fixed",
-        inset: 0,
-        background: "rgba(0, 0, 0, 0.65)",
-        display: "flex",
-        justifyContent: "center",
-        alignItems: "center",
-        zIndex: 1000,
-        padding: "20px",
-      }}
-    >
+    <div className="gt-budget-modal-overlay">
       <div
-        style={{
-          width: "100%",
-          maxWidth: "520px",
-          background: "#101814",
-          border: "1px solid #1f2a24",
-          borderRadius: "16px",
-          padding: "28px",
-          color: "#fff",
-        }}
+        className="gt-budget-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="budget-modal-title"
       >
-        {/* HEADER */}
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            marginBottom: "24px",
-          }}
-        >
+        <div className="gt-budget-modal-header">
           <div>
-            <h2
-              style={{
-                margin: 0,
-                fontSize: "22px",
-              }}
-            >
-              {isEditing
-                ? "Edit Budget"
-                : "Create Budget"}
+            <p className="gt-budget-modal-eyebrow">
+              FINANCIAL PLANNING
+            </p>
+
+            <h2 id="budget-modal-title">
+              {isEditing ? "Edit Budget" : "Add Budget"}
             </h2>
 
-            <p
-              style={{
-                marginTop: "6px",
-                color: "#8b9a91",
-                fontSize: "13px",
-              }}
-            >
+            <p>
               {isEditing
-                ? `Update the original amount in ${originalCurrency}`
-                : `Set your spending limit in ${baseCurrency}`}
+                ? `Update your budget in ${originalCurrency}.`
+                : `Set a spending limit in ${baseCurrency}.`}
             </p>
           </div>
 
           <button
             type="button"
+            className="gt-budget-modal-close"
             onClick={onClose}
-            style={{
-              background: "transparent",
-              border: "none",
-              color: "#8b9a91",
-              fontSize: "22px",
-              cursor: "pointer",
-            }}
+            disabled={loading}
+            aria-label="Close"
           >
             ×
           </button>
         </div>
 
-        {/* EDIT MODE */}
-        {isEditing ? (
-          <div
-            style={{
-              marginBottom: "20px",
-              padding: "14px",
-              background: "#18231d",
-              border: "1px solid #2a382f",
-              borderRadius: "10px",
-            }}
-          >
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                marginBottom: "8px",
-              }}
-            >
-              <span
-                style={{
-                  color: "#8b9a91",
-                  fontSize: "13px",
-                }}
-              >
-                Category
-              </span>
+        <form
+          className="gt-budget-form"
+          onSubmit={handleSubmit}
+        >
+          {isEditing ? (
+            <div className="gt-budget-edit-info">
+              <div>
+                <span>Category</span>
+                <strong>{editData.category}</strong>
+              </div>
 
-              <span
-                style={{
-                  color: "#fff",
-                  fontWeight: "600",
-                }}
-              >
-                {editData.category}
-              </span>
+              <div>
+                <span>Period</span>
+                <strong>
+                  {editData.budgetType === "monthly"
+                    ? `${months[Number(editData.month) - 1]} ${editData.year}`
+                    : `Year ${editData.year}`}
+                </strong>
+              </div>
+
+              <div>
+                <span>Original currency</span>
+                <strong>{originalCurrency}</strong>
+              </div>
             </div>
-
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                marginBottom: "8px",
-              }}
-            >
-              <span
-                style={{
-                  color: "#8b9a91",
-                  fontSize: "13px",
-                }}
-              >
-                Period
-              </span>
-
-              <span
-                style={{
-                  color: "#fff",
-                  fontWeight: "600",
-                }}
-              >
-                {editData.budgetType === "monthly"
-                  ? `${months[(editData.month || 1) - 1]} ${editData.year}`
-                  : `${editData.year} Yearly`}
-              </span>
-            </div>
-
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-              }}
-            >
-              <span
-                style={{
-                  color: "#8b9a91",
-                  fontSize: "13px",
-                }}
-              >
-                Currency
-              </span>
-
-              <span
-                style={{
-                  color: "#4ade80",
-                  fontWeight: "600",
-                }}
-              >
-                {isEditing ? originalCurrency : baseCurrency}
-              </span>
-            </div>
-          </div>
-        ) : (
-          <>
-            {/* CATEGORY */}
-            <div style={{ marginBottom: "18px" }}>
-              <label
-                style={{
-                  display: "block",
-                  marginBottom: "8px",
-                  fontSize: "14px",
-                }}
-              >
+          ) : (
+            <div className="gt-budget-field">
+              <label htmlFor="budget-category">
                 Category
               </label>
 
               <select
+                id="budget-category"
                 name="category"
                 value={formData.category}
                 onChange={handleChange}
-                style={inputStyle}
+                required
               >
-                <option value="">
-                  Select category
-                </option>
+                <option value="">Select category</option>
 
                 {categories.map((category) => (
                   <option
@@ -368,248 +217,130 @@ const BudgetForm = ({ editData, onClose, onSuccess }) => {
                 ))}
               </select>
             </div>
-          </>
-        )}
+          )}
 
-        {/* AMOUNT */}
-        <div style={{ marginBottom: "18px" }}>
-          <label
-            style={{
-              display: "block",
-              marginBottom: "8px",
-              fontSize: "14px",
-            }}
-          >
-            Budget Amount
-          </label>
+          <div className="gt-budget-field">
+            <label htmlFor="budget-amount">
+              Budget Amount
+            </label>
 
-          <div
-            style={{
-              display: "flex",
-              gap: "10px",
-            }}
-          >
-            <input
-              type="number"
-              name="amount"
-              value={formData.amount}
-              onChange={handleChange}
-              min="0"
-              step="0.01"
-              placeholder="Enter amount"
-              style={{
-                ...inputStyle,
-                flex: 1,
-              }}
-            />
+            <div className="gt-budget-amount-input">
+              <input
+                id="budget-amount"
+                type="number"
+                name="amount"
+                value={formData.amount}
+                onChange={handleChange}
+                min="0.01"
+                step="0.01"
+                placeholder="Enter amount"
+                required
+              />
 
-            <div
-              style={{
-                minWidth: "80px",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                background: "#18231d",
-                border: "1px solid #2a382f",
-                borderRadius: "8px",
-                color: "#4ade80",
-                fontWeight: "600",
-                fontSize: "14px",
-              }}
-            >
-              {baseCurrency}
+              <span>
+                {isEditing
+                  ? originalCurrency
+                  : baseCurrency}
+              </span>
             </div>
           </div>
-        </div>
 
-        {/* CREATE-ONLY FIELDS */}
-        {!isEditing && (
-          <>
-            {/* BUDGET TYPE */}
-            <div style={{ marginBottom: "18px" }}>
-              <label
-                style={{
-                  display: "block",
-                  marginBottom: "8px",
-                  fontSize: "14px",
-                }}
-              >
-                Budget Type
-              </label>
-
-              <select
-                name="budgetType"
-                value={formData.budgetType}
-                onChange={handleChange}
-                style={inputStyle}
-              >
-                <option value="monthly">
-                  Monthly
-                </option>
-
-                <option value="yearly">
-                  Yearly
-                </option>
-              </select>
-            </div>
-
-            {/* YEAR */}
-            <div style={{ marginBottom: "18px" }}>
-              <label
-                style={{
-                  display: "block",
-                  marginBottom: "8px",
-                  fontSize: "14px",
-                }}
-              >
-                Year
-              </label>
-
-              <input
-                type="number"
-                name="year"
-                value={formData.year}
-                onChange={handleChange}
-                min="2020"
-                max="2100"
-                style={inputStyle}
-              />
-            </div>
-
-            {/* MONTH */}
-            {formData.budgetType === "monthly" && (
-              <div style={{ marginBottom: "18px" }}>
-                <label
-                  style={{
-                    display: "block",
-                    marginBottom: "8px",
-                    fontSize: "14px",
-                  }}
-                >
-                  Month
+          {!isEditing && (
+            <>
+              <div className="gt-budget-field">
+                <label htmlFor="budget-type">
+                  Budget Type
                 </label>
 
                 <select
-                  name="month"
-                  value={formData.month}
+                  id="budget-type"
+                  name="budgetType"
+                  value={formData.budgetType}
                   onChange={handleChange}
-                  style={inputStyle}
                 >
-                  {months.map((month, index) => (
-                    <option
-                      key={month}
-                      value={index + 1}
-                    >
-                      {month}
-                    </option>
-                  ))}
+                  <option value="monthly">Monthly</option>
+                  <option value="yearly">Yearly</option>
                 </select>
               </div>
-            )}
-          </>
-        )}
 
-        {/* ERROR */}
-        {error && (
-          <div
-            style={{
-              marginBottom: "15px",
-              padding: "10px 12px",
-              background: "rgba(248, 113, 113, 0.1)",
-              border:
-                "1px solid rgba(248, 113, 113, 0.3)",
-              borderRadius: "8px",
-              color: "#f87171",
-              fontSize: "13px",
-            }}
-          >
-            {error}
+              <div className="gt-budget-form-grid">
+                <div className="gt-budget-field">
+                  <label htmlFor="budget-year">
+                    Year
+                  </label>
+
+                  <input
+                    id="budget-year"
+                    type="number"
+                    name="year"
+                    value={formData.year}
+                    onChange={handleChange}
+                    min="2020"
+                    max="2100"
+                    required
+                  />
+                </div>
+
+                {formData.budgetType === "monthly" && (
+                  <div className="gt-budget-field">
+                    <label htmlFor="budget-month">
+                      Month
+                    </label>
+
+                    <select
+                      id="budget-month"
+                      name="month"
+                      value={formData.month}
+                      onChange={handleChange}
+                    >
+                      {months.map((month, index) => (
+                        <option
+                          key={month}
+                          value={index + 1}
+                        >
+                          {month}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+
+          {error && (
+            <div
+              className="gt-budget-form-error"
+              role="alert"
+            >
+              {error}
+            </div>
+          )}
+
+          <div className="gt-budget-modal-footer">
+            <button
+              type="button"
+              className="gt-budget-secondary-btn"
+              onClick={onClose}
+              disabled={loading}
+            >
+              Cancel
+            </button>
+
+            <button
+              type="submit"
+              className="gt-budget-primary-btn"
+              disabled={loading}
+            >
+              {loading
+                ? "Saving..."
+                : isEditing
+                ? "Update Budget"
+                : "Add Budget"}
+            </button>
           </div>
-        )}
-
-        {/* SUCCESS */}
-        {success && (
-          <div
-            style={{
-              marginBottom: "15px",
-              padding: "10px 12px",
-              background: "rgba(74, 222, 128, 0.1)",
-              border:
-                "1px solid rgba(74, 222, 128, 0.3)",
-              borderRadius: "8px",
-              color: "#4ade80",
-              fontSize: "13px",
-            }}
-          >
-            {success}
-          </div>
-        )}
-
-        {/* BUTTONS */}
-        <div
-          style={{
-            display: "flex",
-            gap: "12px",
-            marginTop: "24px",
-          }}
-        >
-          <button
-            type="button"
-            onClick={onClose}
-            style={{
-              flex: 1,
-              padding: "12px",
-              borderRadius: "8px",
-              border: "1px solid #2a382f",
-              background: "transparent",
-              color: "#d1d5db",
-              cursor: "pointer",
-            }}
-          >
-            Cancel
-          </button>
-
-          <button
-            type="submit"
-            disabled={loading}
-            onClick={handleSubmit}
-            style={{
-              flex: 1,
-              padding: "12px",
-              borderRadius: "8px",
-              border: "none",
-              background:
-                "linear-gradient(135deg, #16a34a, #22c55e)",
-              color: "#fff",
-              fontWeight: "600",
-              cursor: loading
-                ? "not-allowed"
-                : "pointer",
-              opacity: loading ? 0.7 : 1,
-            }}
-          >
-            {loading
-              ? "Saving..."
-              : isEditing
-              ? "Update Budget"
-              : "Create Budget"}
-          </button>
-        </div>
+        </form>
       </div>
     </div>
   );
-};
-
-const inputStyle = {
-  width: "100%",
-  padding: "11px 12px",
-  background: "#0b110e",
-  border: "1px solid #2a382f",
-  borderRadius: "8px",
-  color: "#fff",
-  fontSize: "14px",
-  outline: "none",
-  boxSizing: "border-box",
-};
-
-export default BudgetForm;
+}

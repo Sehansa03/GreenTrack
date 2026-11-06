@@ -1,3 +1,4 @@
+
 import {
   ResponsiveContainer,
   PieChart,
@@ -6,138 +7,137 @@ import {
   Tooltip,
 } from "recharts";
 
+const COLORS = [
+  "#35B978",
+  "#5D9DE0",
+  "#E7AF61",
+  "#E77D7D",
+  "#A78BDA",
+  "#D88DB9",
+  "#4EBBAF",
+  "#C88C60",
+];
+
 export default function ExpenseDistributionChart({
   expenses,
   baseCurrency,
   convertToBase,
 }) {
-  // Group expenses by category
-  const categoryTotals = expenses.reduce((acc, expense) => {
-    const category = expense.category || "Other";
+  const totals = {};
 
+  expenses.forEach((expense) => {
     const amount = convertToBase(
       expense.amount,
       expense.currency
     );
 
-    acc[category] = (acc[category] || 0) + amount;
+    if (amount === null || !Number.isFinite(Number(amount))) {
+      return;
+    }
 
-    return acc;
-  }, {});
+    const category = expense.category || "Other";
+    totals[category] = (totals[category] || 0) + Number(amount);
+  });
 
-  const totalExpense = Object.values(categoryTotals).reduce(
-    (sum, amount) => sum + amount,
+  const total = Object.values(totals).reduce(
+    (sum, value) => sum + value,
     0
   );
 
-  const data = Object.entries(categoryTotals)
+  const data = Object.entries(totals)
     .map(([name, amount]) => ({
       name,
       amount,
-      percentage:
-        totalExpense > 0
-          ? (amount / totalExpense) * 100
-          : 0,
+      percentage: total > 0 ? (amount / total) * 100 : 0,
     }))
-    .filter((item) => item.amount > 0);
+    .filter((item) => item.amount > 0)
+    .sort((a, b) => b.amount - a.amount);
 
-  if (data.length === 0) {
+  const formatMoney = (amount) =>
+    `${baseCurrency} ${Number(amount).toLocaleString("en-US", {
+      maximumFractionDigits: 2,
+    })}`;
+
+  if (!data.length) {
     return (
-      <div style={emptyState}>
-        <div style={emptyIcon}>◌</div>
-        <p style={emptyTitle}>No expense data yet</p>
-        <span style={emptyDescription}>
-          Add expenses to see your spending distribution.
-        </span>
+      <div className="gt-analytics-empty">
+        <span className="gt-analytics-empty-icon">◌</span>
+        <strong>No expense data yet</strong>
+        <p>Add expenses to see your spending distribution.</p>
       </div>
     );
   }
 
   return (
-    <div style={chartWrapper}>
-      <ResponsiveContainer width="100%" height={320}>
-        <PieChart>
-          <Pie
-            data={data}
-            dataKey="amount"
-            nameKey="name"
-            cx="50%"
-            cy="50%"
-            innerRadius={70}
-            outerRadius={105}
-            paddingAngle={3}
-            stroke="none"
-          >
-            {data.map((entry, index) => (
-              <Cell
-                key={entry.name}
-                fill={COLORS[index % COLORS.length]}
-              />
-            ))}
-          </Pie>
+    <div className="gt-analytics-distribution">
+      <div className="gt-analytics-donut">
+        <ResponsiveContainer width="100%" height={245}>
+          <PieChart>
+            <Pie
+              data={data}
+              dataKey="amount"
+              nameKey="name"
+              cx="50%"
+              cy="50%"
+              innerRadius={65}
+              outerRadius={95}
+              paddingAngle={3}
+              stroke="none"
+            >
+              {data.map((item, index) => (
+                <Cell
+                  key={item.name}
+                  fill={COLORS[index % COLORS.length]}
+                />
+              ))}
+            </Pie>
+            <Tooltip
+              formatter={(value, name) => [
+                formatMoney(value),
+                name,
+              ]}
+              contentStyle={{
+                background: "#202925",
+                border: "1px solid #34453A",
+                borderRadius: 10,
+                color: "#F2F5F3",
+              }}
+              itemStyle={{ color: "#F2F5F3" }}
+            />
+          </PieChart>
+        </ResponsiveContainer>
 
-          <Tooltip
-            cursor={false}
-            formatter={(value, name, props) => [
-              `${baseCurrency} ${Number(value).toLocaleString(
-                undefined,
-                {
-                  maximumFractionDigits: 2,
-                }
-              )} (${props.payload.percentage.toFixed(1)}%)`,
-              name,
-            ]}
-            contentStyle={{
-              background: "#ffffff",
-              border: "none",
-              borderRadius: 10,
-              boxShadow: "0 8px 30px rgba(0,0,0,0.25)",
-              padding: "10px 12px",
-            }}
-            labelStyle={{
-              color: "#111827",
-              fontWeight: 600,
-            }}
-            itemStyle={{
-              color: "#111827",
-              fontSize: 12,
-              fontWeight: 500,
-            }}
-          />
-        </PieChart>
-      </ResponsiveContainer>
+        <div className="gt-analytics-donut-center">
+          <span>Total spent</span>
+          <strong>
+            {Intl.NumberFormat("en-US", {
+              notation: "compact",
+              maximumFractionDigits: 1,
+            }).format(total)}
+          </strong>
+          <small>{baseCurrency}</small>
+        </div>
+      </div>
 
-      {/* Category legend */}
-      <div style={legend}>
+      <div className="gt-analytics-category-list">
         {data.map((item, index) => (
-          <div key={item.name} style={legendItem}>
-            <div style={legendLeft}>
+          <div
+            key={item.name}
+            className="gt-analytics-category"
+          >
+            <div className="gt-analytics-category-info">
               <span
+                className="gt-analytics-category-dot"
                 style={{
-                  ...legendDot,
                   background: COLORS[index % COLORS.length],
                 }}
               />
-
-              <span style={categoryName}>
-                {item.name}
-              </span>
+              <span>{item.name}</span>
             </div>
 
-            <div style={legendRight}>
-              <span style={percentage}>
-                {item.percentage.toFixed(1)}%
-              </span>
-
-              <span style={categoryAmount}>
-                {baseCurrency}{" "}
-                {Number(item.amount).toLocaleString(
-                  undefined,
-                  {
-                    maximumFractionDigits: 2,
-                  }
-                )}
-              </span>
+            <div className="gt-analytics-category-values">
+              <strong>{item.percentage.toFixed(1)}%</strong>
+              <small>{formatMoney(item.amount)}</small>
             </div>
           </div>
         ))}
@@ -145,96 +145,3 @@ export default function ExpenseDistributionChart({
     </div>
   );
 }
-
-/* Different colors for different categories */
-const COLORS = [
-  "#4ade80", // green
-  "#60a5fa", // blue
-  "#f59e0b", // amber
-  "#f87171", // red
-  "#a78bfa", // purple
-  "#f472b6", // pink
-  "#2dd4bf", // teal
-  "#fb923c", // orange
-];
-
-const chartWrapper = {
-  width: "100%",
-  marginTop: 12,
-};
-
-const legend = {
-  display: "flex",
-  flexDirection: "column",
-  gap: 10,
-  marginTop: 4,
-};
-
-const legendItem = {
-  display: "flex",
-  justifyContent: "space-between",
-  alignItems: "center",
-  padding: "7px 0",
-  borderBottom: "1px solid rgba(255,255,255,0.04)",
-};
-
-const legendLeft = {
-  display: "flex",
-  alignItems: "center",
-  gap: 9,
-};
-
-const legendRight = {
-  display: "flex",
-  alignItems: "center",
-  gap: 14,
-};
-
-const legendDot = {
-  width: 8,
-  height: 8,
-  borderRadius: "50%",
-};
-
-const categoryName = {
-  fontSize: 12,
-  color: "rgba(255,255,255,0.65)",
-};
-
-const percentage = {
-  fontSize: 12,
-  color: "#4ade80",
-  fontWeight: 600,
-};
-
-const categoryAmount = {
-  fontSize: 12,
-  color: "#f9fafb",
-  fontWeight: 600,
-};
-
-const emptyState = {
-  height: 320,
-  display: "flex",
-  flexDirection: "column",
-  alignItems: "center",
-  justifyContent: "center",
-  textAlign: "center",
-};
-
-const emptyIcon = {
-  fontSize: 32,
-  color: "#4ade80",
-  marginBottom: 10,
-};
-
-const emptyTitle = {
-  color: "#fff",
-  margin: "0 0 6px",
-  fontSize: 14,
-};
-
-const emptyDescription = {
-  color: "rgba(255,255,255,0.3)",
-  fontSize: 12,
-};

@@ -1,7 +1,7 @@
 
 /* ============================================
-   GREENTRACK - PROFESSIONAL DARK DASHBOARD
-   ============================================ */
+   GREENTRACK - DASHBOARD
+============================================ */
 
 .gd-dashboard {
   min-height: 100vh;
@@ -9,6 +9,13 @@
   background: #0c1110;
   color: #f2f5f3;
   font-family: "DM Sans", "Segoe UI", sans-serif;
+  box-sizing: border-box;
+}
+
+.gd-dashboard *,
+.gd-dashboard *::before,
+.gd-dashboard *::after {
+  box-sizing: border-box;
 }
 
 /* HEADER */
@@ -69,7 +76,9 @@
   font-size: 12px;
   font-weight: 700;
   cursor: pointer;
-  transition: background .2s ease, transform .2s ease;
+  transition:
+    background 0.2s ease,
+    transform 0.2s ease;
 }
 
 .gd-button:hover {
@@ -96,7 +105,7 @@
   background: #1a2420;
   border: 1px solid #34443b;
   border-radius: 12px;
-  box-shadow: 0 16px 35px rgba(0, 0, 0, .3);
+  box-shadow: 0 16px 35px rgba(0, 0, 0, 0.3);
 }
 
 .gd-add-dropdown a {
@@ -130,20 +139,18 @@
 }
 
 .gd-alert-error {
-  background: rgba(248, 113, 113, .09);
+  background: rgba(248, 113, 113, 0.09);
   color: #fca5a5;
-  border: 1px solid rgba(248, 113, 113, .2);
+  border: 1px solid rgba(248, 113, 113, 0.2);
 }
 
 .gd-alert-warning {
-  background: rgba(251, 191, 36, .09);
+  background: rgba(251, 191, 36, 0.09);
   color: #fcd34d;
-  border: 1px solid rgba(251, 191, 36, .2);
+  border: 1px solid rgba(251, 191, 36, 0.2);
 }
 
-/* ============================================
-   SPROUT - ALWAYS VISIBLE COMPANION
-   ============================================ */
+/* SPROUT COMPANION */
 
 .gd-sprout-companion {
   display: flex;
@@ -222,7 +229,9 @@
   border-radius: 15px;
   background: #171e1b;
   border: 1px solid #28342d;
-  transition: border-color .2s ease, transform .2s ease;
+  transition:
+    border-color 0.2s ease,
+    transform 0.2s ease;
 }
 
 .gd-summary-card:hover {
@@ -257,7 +266,7 @@
   font-size: clamp(18px, 2vw, 25px);
   line-height: 1.25;
   font-weight: 750;
-  letter-spacing: -.5px;
+  letter-spacing: -0.5px;
   overflow-wrap: anywhere;
 }
 
@@ -270,6 +279,46 @@
   color: #93a29a;
   font-size: 11px;
   line-height: 1.5;
+}
+
+/* MONTHLY COMPARISONS */
+
+.gd-summary-comparison {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.gd-comparison-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border-radius: 7px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.gd-comparison-badge.up {
+  color: #8bd4ab;
+  background: rgba(53, 185, 120, 0.1);
+}
+
+.gd-comparison-badge.down {
+  color: #f3b0a7;
+  background: rgba(242, 139, 130, 0.1);
+}
+
+.gd-comparison-badge.neutral {
+  color: #b4c3b9;
+  background: #26332b;
+}
+
+.gd-comparison-label {
+  color: #829689;
+  font-size: 10px;
 }
 
 /* CHART PANELS */
@@ -315,6 +364,7 @@
   border-radius: 7px;
   font-size: 10px;
   font-weight: 700;
+  white-space: nowrap;
 }
 
 .gd-panel-link,
@@ -331,7 +381,7 @@
   text-decoration: underline;
 }
 
-/* MONTHLY BAR CHART */
+/* MONTHLY SPENDING CHART */
 
 .gd-chart {
   display: grid;
@@ -358,14 +408,36 @@
   border-radius: 6px;
   background: #202925;
   overflow: hidden;
+  cursor: help;
 }
 
 .gd-chart-bar {
   width: 72%;
   min-height: 0;
   border-radius: 5px 5px 0 0;
-  background: linear-gradient(180deg, #35b978, #258457);
-  transition: height .3s ease;
+  background: linear-gradient(
+    180deg,
+    #35b978,
+    #258457
+  );
+  transition: height 0.3s ease;
+}
+
+.gd-chart-column.current .gd-chart-track {
+  background: #26392e;
+}
+
+.gd-chart-column.current .gd-chart-bar {
+  background: linear-gradient(
+    180deg,
+    #4ade80,
+    #2b9e65
+  );
+}
+
+.gd-chart-column.current > span {
+  color: #86efac;
+  font-weight: 800;
 }
 
 .gd-chart-column > span {
@@ -373,16 +445,22 @@
   font-size: 10px;
 }
 
+.gd-chart-column:hover .gd-chart-bar {
+  filter: brightness(1.2);
+}
+
 /* SPENDING CATEGORIES */
 
 .gd-categories {
   margin-top: 27px;
-  max-height: 245px;
-  overflow-y: auto;
 }
 
 .gd-category {
   margin-bottom: 20px;
+}
+
+.gd-category:last-child {
+  margin-bottom: 0;
 }
 
 .gd-category-heading {
@@ -419,6 +497,117 @@
 .gd-category small {
   color: #829689;
   font-size: 11px;
+}
+
+/* RECENT TRANSACTIONS */
+
+.gd-recent-section {
+  margin-top: 22px;
+}
+
+.gd-recent-list {
+  margin-top: 22px;
+}
+
+.gd-recent-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 15px 0;
+  border-bottom: 1px solid #28342d;
+}
+
+.gd-recent-item:last-child {
+  border-bottom: none;
+}
+
+.gd-recent-left {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  min-width: 0;
+}
+
+.gd-recent-icon {
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  border-radius: 11px;
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.gd-recent-icon.income {
+  color: #8bd4ab;
+  background: rgba(53, 185, 120, 0.12);
+}
+
+.gd-recent-icon.expense {
+  color: #f28b82;
+  background: rgba(242, 139, 130, 0.1);
+}
+
+.gd-recent-info {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+}
+
+.gd-recent-info strong {
+  color: #f2f5f3;
+  font-size: 13px;
+  font-weight: 650;
+  overflow-wrap: anywhere;
+}
+
+.gd-recent-info span {
+  color: #93a29a;
+  font-size: 11px;
+}
+
+.gd-recent-info small {
+  color: #748b7d;
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+
+.gd-recent-amount {
+  flex-shrink: 0;
+  font-size: 13px;
+  font-weight: 700;
+  text-align: right;
+}
+
+.gd-recent-amount.income {
+  color: #8bd4ab;
+}
+
+.gd-recent-amount.expense {
+  color: #f28b82;
+}
+
+.gd-recent-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 18px;
+}
+
+.gd-recent-footer > span {
+  color: #829689;
+  font-size: 11px;
+}
+
+.gd-recent-links {
+  display: flex;
+  align-items: center;
+  gap: 18px;
 }
 
 /* EMPTY STATES */
@@ -458,7 +647,7 @@
   margin: 0;
 }
 
-/* RESPONSIVE DESIGN */
+/* RESPONSIVE */
 
 @media (max-width: 1250px) {
   .gd-summary-grid {
@@ -537,11 +726,40 @@
   .gd-chart-column > span {
     font-size: 9px;
   }
+
+  .gd-recent-item {
+    gap: 10px;
+  }
+
+  .gd-recent-icon {
+    width: 36px;
+    height: 36px;
+    font-size: 18px;
+  }
+
+  .gd-recent-info strong,
+  .gd-recent-amount {
+    font-size: 12px;
+  }
+
+  .gd-recent-info span,
+  .gd-recent-info small {
+    font-size: 10px;
+  }
+
+  .gd-recent-amount {
+    max-width: 45%;
+    overflow-wrap: anywhere;
+  }
 }
 
 @media (max-width: 380px) {
   .gd-summary-grid {
     grid-template-columns: 1fr;
+  }
+
+  .gd-recent-amount {
+    max-width: 125px;
   }
 }
 
@@ -552,3 +770,94 @@
     transition: none;
   }
 }
+
+/* ============================================
+   INCOME & SPENDING — SIX MONTH COMPARISON
+============================================ */
+.gd-income-expense-section { width: 100%; }
+.gd-income-expense-panel { width: 100%; }
+.gd-dual-chart {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 30px;
+  height: 224px;
+}
+.gd-dual-month {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  color: #93A29A;
+  font-size: 12px;
+}
+.gd-dual-bars {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 7px;
+  width: 100%;
+  height: 190px;
+  border-bottom: 1px solid #28342D;
+}
+.gd-dual-bar {
+  width: min(32%, 42px);
+  min-width: 0;
+  border-radius: 6px 6px 0 0;
+  transition: height 250ms ease, filter 180ms ease;
+}
+.gd-dual-bar:hover { filter: brightness(1.2); }
+.gd-dual-income { background: #258457; }
+.gd-dual-expense { background: #526A5D; }
+.gd-dual-legend {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 24px;
+  margin-top: 24px;
+  color: #93A29A;
+  font-size: 12px;
+}
+.gd-dual-legend span { display: inline-flex; align-items: center; gap: 8px; }
+.gd-dual-legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; }
+.gd-dual-legend-income { background: #258457; }
+.gd-dual-legend-expense { background: #526A5D; }
+@media (max-width: 600px) {
+  .gd-dual-chart { height: 180px; gap: 5px; margin-top: 24px; }
+  .gd-dual-bars { height: 150px; gap: 3px; }
+  .gd-dual-month { font-size: 10px; gap: 10px; }
+  .gd-dual-bar { width: 37%; border-radius: 4px 4px 0 0; }
+  .gd-dual-legend { margin-top: 18px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .gd-dual-bar { transition: none; }
+}
+
+
+/* ==========================================
+   GREENTRACK DASHBOARD SUMMARY CARD COLORS
+   ========================================== */
+
+/* Monthly Income - Green */
+.gd-summary-card.gd-tone-income .gd-summary-value,
+.gd-summary-card.gd-tone-income .gd-summary-icon {
+  color: #35B978;
+}
+
+/* Monthly Spending - Red */
+.gd-summary-card.gd-tone-expense .gd-summary-value,
+.gd-summary-card.gd-tone-expense .gd-summary-icon {
+  color: #F87171;
+}
+
+/* Monthly Savings - Green when positive */
+.gd-summary-card.gd-tone-savings:not(.gd-value-negative) .gd-summary-value {
+  color: #35B978;
+}
+
+/* Monthly Savings - Red when negative */
+.gd-summary-card.gd-tone-savings.gd-value-negative .gd-summary-value {
+  color: #F87171;
+}
+

@@ -1,0 +1,46 @@
+
+.gt-logo {
+  display: inline-flex;
+  align-items: center;
+  gap: 11px;
+  text-decoration: none;
+  flex-shrink: 0;
+}
+
+.gt-logo-icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  background: #258457;
+  display: grid;
+  place-items: center;
+  transition: background 0.2s, transform 0.2s;
+}
+
+.gt-logo:hover .gt-logo-icon {
+  background: #35B978;
+  transform: translateY(-2px);
+}
+
+.gt-logo-text {
+  font-family: "DM Sans", sans-serif;
+  font-size: 23px;
+  font-weight: 750;
+  letter-spacing: -0.7px;
+  color: #F2F5F3;
+}
+
+.gt-logo-text span {
+  color: #35B978;
+}
+
+@media (max-width: 480px) {
+  .gt-logo-icon {
+    width: 37px;
+    height: 37px;
+  }
+
+  .gt-logo-text {
+    font-size: 20px;
+  }
+}

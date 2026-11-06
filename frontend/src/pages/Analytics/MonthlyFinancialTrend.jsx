@@ -1,3 +1,4 @@
+
 import {
   ResponsiveContainer,
   LineChart,
@@ -6,7 +7,14 @@ import {
   YAxis,
   CartesianGrid,
   Tooltip,
+  Legend,
 } from "recharts";
+
+const compact = (value) =>
+  Intl.NumberFormat("en-US", {
+    notation: "compact",
+    maximumFractionDigits: 1,
+  }).format(value);
 
 export default function MonthlyFinancialTrend({
   incomes,
@@ -14,269 +22,135 @@ export default function MonthlyFinancialTrend({
   baseCurrency,
   convertToBase,
 }) {
-  const monthlyData = {};
+  const monthly = {};
 
-  // Process income
-  incomes.forEach((income) => {
-    const date = new Date(income.date);
+  function addRecords(records, field) {
+    records.forEach((record) => {
+      const date = String(record.date || "").slice(0, 10);
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return;
 
-    if (isNaN(date)) return;
+      const monthKey = date.slice(0, 7);
+      const amount = convertToBase(
+        record.amount,
+        record.currency
+      );
 
-    const monthKey = `${date.getFullYear()}-${String(
-      date.getMonth() + 1
-    ).padStart(2, "0")}`;
+      if (amount === null || !Number.isFinite(Number(amount))) {
+        return;
+      }
 
-    if (!monthlyData[monthKey]) {
-      monthlyData[monthKey] = {
-        monthKey,
-        income: 0,
-        expense: 0,
+      if (!monthly[monthKey]) {
+        monthly[monthKey] = {
+          monthKey,
+          income: 0,
+          expense: 0,
+        };
+      }
+
+      monthly[monthKey][field] += Number(amount);
+    });
+  }
+
+  addRecords(incomes, "income");
+  addRecords(expenses, "expense");
+
+  const data = Object.values(monthly)
+    .sort((a, b) => a.monthKey.localeCompare(b.monthKey))
+    .map((item) => {
+      const [year, month] = item.monthKey.split("-");
+      return {
+        ...item,
+        month: new Date(
+          Number(year),
+          Number(month) - 1,
+          1
+        ).toLocaleDateString("en-US", {
+          month: "short",
+          year: "2-digit",
+        }),
       };
-    }
+    });
 
-    monthlyData[monthKey].income += convertToBase(
-      income.amount,
-      income.currency
-    );
-  });
-
-  // Process expenses
-  expenses.forEach((expense) => {
-    const date = new Date(expense.date);
-
-    if (isNaN(date)) return;
-
-    const monthKey = `${date.getFullYear()}-${String(
-      date.getMonth() + 1
-    ).padStart(2, "0")}`;
-
-    if (!monthlyData[monthKey]) {
-      monthlyData[monthKey] = {
-        monthKey,
-        income: 0,
-        expense: 0,
-      };
-    }
-
-    monthlyData[monthKey].expense += convertToBase(
-      expense.amount,
-      expense.currency
-    );
-  });
-
-  const data = Object.values(monthlyData)
-    .sort((a, b) =>
-      a.monthKey.localeCompare(b.monthKey)
-    )
-    .map((item) => ({
-      ...item,
-      month: formatMonth(item.monthKey),
-    }));
-
-  if (data.length === 0) {
+  if (!data.length) {
     return (
-      <div style={emptyState}>
-        <div style={emptyIcon}>◌</div>
-        <p style={emptyTitle}>
-          No monthly data yet
-        </p>
-        <span style={emptyDescription}>
-          Add income or expenses to see your financial trend.
-        </span>
+      <div className="gt-analytics-empty">
+        <span className="gt-analytics-empty-icon">⌁</span>
+        <strong>No monthly data yet</strong>
+        <p>Add transactions to view your financial trend.</p>
       </div>
     );
   }
 
   return (
-    <div style={chartWrapper}>
-      <ResponsiveContainer width="100%" height={340}>
+    <div className="gt-analytics-chart-body">
+      <ResponsiveContainer width="100%" height={315}>
         <LineChart
           data={data}
-          margin={{
-            top: 20,
-            right: 20,
-            left: 10,
-            bottom: 10,
-          }}
+          margin={{ top: 12, right: 16, left: -15, bottom: 6 }}
         >
           <CartesianGrid
-            strokeDasharray="3 3"
-            stroke="rgba(255,255,255,0.06)"
+            stroke="#28342D"
+            strokeDasharray="3 5"
             vertical={false}
           />
-
           <XAxis
             dataKey="month"
-            tick={{
-              fill: "rgba(255,255,255,0.5)",
-              fontSize: 11,
-            }}
             axisLine={false}
             tickLine={false}
+            tick={{ fill: "#93A29A", fontSize: 11 }}
+            minTickGap={20}
           />
-
           <YAxis
-            tick={{
-              fill: "rgba(255,255,255,0.4)",
-              fontSize: 10,
-            }}
             axisLine={false}
             tickLine={false}
-            tickFormatter={(value) =>
-              Number(value).toLocaleString()
+            tick={{ fill: "#829188", fontSize: 11 }}
+            tickFormatter={compact}
+            width={58}
+          />
+          <Tooltip
+            formatter={(value, name) => [
+              `${baseCurrency} ${Number(value).toLocaleString(
+                "en-US",
+                { maximumFractionDigits: 2 }
+              )}`,
+              name === "income" ? "Income" : "Expense",
+            ]}
+            contentStyle={{
+              background: "#202925",
+              border: "1px solid #34453A",
+              borderRadius: 10,
+              color: "#F2F5F3",
+            }}
+            labelStyle={{ color: "#F2F5F3" }}
+            itemStyle={{ color: "#F2F5F3" }}
+          />
+          <Legend
+            verticalAlign="bottom"
+            wrapperStyle={{ paddingTop: 12, fontSize: 12 }}
+            formatter={(value) =>
+              value === "income" ? "Income" : "Expense"
             }
           />
-
-          <Tooltip
-            contentStyle={{
-              background: "#ffffff",
-              border: "none",
-              borderRadius: 10,
-              boxShadow:
-                "0 8px 30px rgba(0,0,0,0.25)",
-              padding: "10px 12px",
-            }}
-            labelStyle={{
-              color: "#111827",
-              fontWeight: 600,
-              marginBottom: 6,
-            }}
-            itemStyle={{
-              color: "#111827",
-              fontSize: 12,
-            }}
-            formatter={(value, name) => [
-              `${baseCurrency} ${Number(
-                value
-              ).toLocaleString(undefined, {
-                maximumFractionDigits: 2,
-              })}`,
-              name === "income"
-                ? "Income"
-                : "Expense",
-            ]}
-          />
-
           <Line
             type="monotone"
             dataKey="income"
-            stroke="#4ade80"
-            strokeWidth={3}
-            dot={{
-              r: 4,
-              strokeWidth: 2,
-              fill: "#101814",
-            }}
-            activeDot={{
-              r: 6,
-            }}
+            stroke="#35B978"
+            strokeWidth={2.5}
+            dot={{ r: 3, fill: "#171E1B" }}
+            activeDot={{ r: 6 }}
+            connectNulls
           />
-
           <Line
             type="monotone"
             dataKey="expense"
-            stroke="#f87171"
-            strokeWidth={3}
-            dot={{
-              r: 4,
-              strokeWidth: 2,
-              fill: "#101814",
-            }}
-            activeDot={{
-              r: 6,
-            }}
+            stroke="#E77D7D"
+            strokeWidth={2.5}
+            dot={{ r: 3, fill: "#171E1B" }}
+            activeDot={{ r: 6 }}
+            connectNulls
           />
         </LineChart>
       </ResponsiveContainer>
-
-      <div style={legend}>
-        <div style={legendItem}>
-          <span
-            style={{
-              ...legendDot,
-              background: "#4ade80",
-            }}
-          />
-          <span>Income</span>
-        </div>
-
-        <div style={legendItem}>
-          <span
-            style={{
-              ...legendDot,
-              background: "#f87171",
-            }}
-          />
-          <span>Expense</span>
-        </div>
-      </div>
     </div>
   );
 }
-
-function formatMonth(monthKey) {
-  const [year, month] = monthKey.split("-");
-
-  const date = new Date(
-    Number(year),
-    Number(month) - 1,
-    1
-  );
-
-  return date.toLocaleDateString("en-US", {
-    month: "short",
-    year: "numeric",
-  });
-}
-
-const chartWrapper = {
-  width: "100%",
-  marginTop: 20,
-};
-
-const legend = {
-  display: "flex",
-  justifyContent: "center",
-  gap: 24,
-  marginTop: 4,
-};
-
-const legendItem = {
-  display: "flex",
-  alignItems: "center",
-  gap: 7,
-  fontSize: 12,
-  color: "rgba(255,255,255,0.6)",
-};
-
-const legendDot = {
-  width: 8,
-  height: 8,
-  borderRadius: "50%",
-};
-
-const emptyState = {
-  height: 340,
-  display: "flex",
-  flexDirection: "column",
-  alignItems: "center",
-  justifyContent: "center",
-  textAlign: "center",
-};
-
-const emptyIcon = {
-  fontSize: 32,
-  color: "#4ade80",
-  marginBottom: 10,
-};
-
-const emptyTitle = {
-  color: "#fff",
-  margin: "0 0 6px",
-  fontSize: 14,
-};
-
-const emptyDescription = {
-  color: "rgba(255,255,255,0.3)",
-  fontSize: 12,
-};

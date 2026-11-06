@@ -3,7 +3,7 @@ const axios = require("axios");
 
 const Budget = require("../models/budgetModel");
 const Expense = require("../models/expenseModel");
-const User = require("../models/user");
+const User = require("../models/User");
 
 // ========================================
 // CURRENCY HELPERS

@@ -3,6 +3,7 @@ import { lazy, Suspense, useEffect, useState } from "react";
 import { Routes, Route, Link } from "react-router-dom";
 import { CurrencyProvider } from "./context/CurrencyContext";
 import "./AppLayout.css";
+import GreenTrackLogo from "./components/GreenTrackLogo";
 
 // Lazy-load page components
 const Landing = lazy(() => import("./pages/Landing"));
@@ -136,16 +137,9 @@ function AppLayout({ children }) {
           </button>
 
           {/* Mobile brand */}
-          <Link
-            to="/dashboard"
-            className="gt-mobile-brand"
-            onClick={closeMobileMenu}
-          >
-            <span className="gt-mobile-brand-icon">
-              🌿
-            </span>
-            Green<span>Track</span>
-          </Link>
+          <div className="gt-mobile-brand">
+             <GreenTrackLogo to="/dashboard" />
+          </div>
 
           {/* Mobile income shortcut */}
           <Link

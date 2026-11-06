@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { authAPI } from "../api/auth";
 import ProfileModal from "./ProfileModal";
+import GreenTrackLogo from "./GreenTrackLogo";
 import "./Sidebar.css";
 
 function Icon({ name, size = 20 }) {
@@ -55,41 +56,6 @@ function Icon({ name, size = 20 }) {
   return <svg {...props}>{paths[name]}</svg>;
 }
 
-function BrandLogo() {
-  return (
-    <span className="gt-brand-mark">
-      <svg
-        width="29"
-        height="29"
-        viewBox="0 0 32 32"
-        fill="none"
-        aria-hidden="true"
-      >
-        <path
-          d="M16 26V13"
-          stroke="#E9FFF0"
-          strokeWidth="2.4"
-          strokeLinecap="round"
-        />
-        <path
-          d="M16 19C9 19 6 15 6 9c7 0 10 4 10 10Z"
-          fill="#A7F3D0"
-        />
-        <path
-          d="M16 15c0-7 4-10 10-10 0 7-3 10-10 10Z"
-          fill="#DCFCE7"
-        />
-        <path
-          d="M10 26h12"
-          stroke="#E9FFF0"
-          strokeWidth="2.4"
-          strokeLinecap="round"
-        />
-      </svg>
-    </span>
-  );
-}
-
 const navItems = [
   { label: "Dashboard", path: "/dashboard", icon: "dashboard" },
   { label: "Income", path: "/income", icon: "income" },
@@ -110,32 +76,12 @@ export default function Sidebar({
 
   const [user, setUser] = useState(null);
   const [showProfile, setShowProfile] = useState(false);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
-
-const loadUser = async () => {
-  try {
-    const res = await authAPI.getProfile();
-
-    const profile =
-      res.data?.data?.user ||
-      res.data?.data ||
-      res.data?.user ||
-      res.data;
-
-    setUser(profile);
-  } catch (error) {
-    console.error("Failed to load profile:", error);
-  }
-};
-
-useEffect(() => {
-  let active = true;
-
-  const fetchProfile = async () => {
+  // Load user profile
+  const loadUser = async () => {
     try {
       const res = await authAPI.getProfile();
-
-      if (!active) return;
 
       const profile =
         res.data?.data?.user ||
@@ -145,33 +91,55 @@ useEffect(() => {
 
       setUser(profile);
     } catch (error) {
-      if (active) {
-        console.error("Failed to load profile:", error);
-      }
+      console.error("Failed to load profile:", error);
     }
   };
 
-  fetchProfile();
+  useEffect(() => {
+    let active = true;
 
-  return () => {
-    active = false;
-  };
-}, []);
+    const fetchProfile = async () => {
+      try {
+        const res = await authAPI.getProfile();
 
+        if (!active) return;
 
+        const profile =
+          res.data?.data?.user ||
+          res.data?.data ||
+          res.data?.user ||
+          res.data;
+
+        setUser(profile);
+      } catch (error) {
+        if (active) {
+          console.error("Failed to load profile:", error);
+        }
+      }
+    };
+
+    fetchProfile();
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  // Close mobile sidebar
   const closeMobile = () => {
     onMobileClose?.();
   };
 
+  // Sign out after confirmation
+  const handleLogout = () => {
+    setShowLogoutConfirm(false);
+    localStorage.removeItem("token");
+    closeMobile();
+    setUser(null);
+    navigate("/login", { replace: true });
+  };
 
-const handleLogout = () => {
-  localStorage.removeItem("token");
-  closeMobile();
-  setUser(null);
-  navigate("/login", { replace: true });
-};
-
-
+  // User initials
   const initials = (user?.fullName || "User")
     .split(" ")
     .filter(Boolean)
@@ -193,18 +161,11 @@ const handleLogout = () => {
       >
         {/* Brand */}
         <div className="gt-sidebar-top">
-          <Link
-            to="/dashboard"
-            className="gt-sidebar-brand"
-            onClick={closeMobile}
-          >
-            <BrandLogo />
+          <div className="gt-sidebar-brand">
+            <GreenTrackLogo to="/dashboard" />
+          </div>
 
-            <span className="gt-sidebar-brand-text">
-              Green<span>Track</span>
-            </span>
-          </Link>
-
+          {/* Collapse sidebar */}
           <button
             type="button"
             className="gt-sidebar-toggle"
@@ -215,6 +176,7 @@ const handleLogout = () => {
             <Icon name="chevron" size={17} />
           </button>
 
+          {/* Close mobile sidebar */}
           <button
             type="button"
             className="gt-sidebar-close"
@@ -293,10 +255,11 @@ const handleLogout = () => {
             <span className="gt-profile-arrow">›</span>
           </button>
 
+          {/* Sign out button */}
           <button
             type="button"
             className="gt-logout-button"
-            onClick={handleLogout}
+            onClick={() => setShowLogoutConfirm(true)}
             title="Sign out"
           >
             <Icon name="logout" size={18} />
@@ -307,6 +270,7 @@ const handleLogout = () => {
         </div>
       </aside>
 
+      {/* Profile modal */}
       {showProfile && (
         <ProfileModal
           onClose={() => {
@@ -314,6 +278,59 @@ const handleLogout = () => {
             loadUser();
           }}
         />
+      )}
+
+      {/* Sign-out confirmation modal */}
+      {showLogoutConfirm && (
+        <div
+          className="gt-logout-overlay"
+          onClick={() => setShowLogoutConfirm(false)}
+        >
+          <div
+            className="gt-logout-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="gt-logout-title"
+            aria-describedby="gt-logout-description"
+            onClick={(e) => e.stopPropagation()}
+            onKeyDown={(e) => {
+              if (e.key === "Escape") {
+                setShowLogoutConfirm(false);
+              }
+            }}
+          >
+            <div className="gt-logout-modal-icon">
+              <Icon name="logout" size={25} />
+            </div>
+
+            <h2 id="gt-logout-title">
+              Sign out of GreenTrack?
+            </h2>
+
+            <p id="gt-logout-description">
+              Are you sure you want to sign out of your account?
+            </p>
+
+            <div className="gt-logout-modal-actions">
+              <button
+                type="button"
+                className="gt-logout-cancel"
+                onClick={() => setShowLogoutConfirm(false)}
+                autoFocus
+              >
+                Cancel
+              </button>
+
+              <button
+                type="button"
+                className="gt-logout-confirm"
+                onClick={handleLogout}
+              >
+                Sign out
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </>
   );

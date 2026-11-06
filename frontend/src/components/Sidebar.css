@@ -1,265 +1,134 @@
 
-/* =====================================
-   GREENTRACK DARK SIDEBAR
-   ===================================== */
+/* ==========================================
+   GREENTRACK SIGN-OUT CONFIRMATION
+   ========================================== */
 
-.gt-sidebar.gt-sidebar-dark {
-  background: #101613;
-  border-right: 1px solid #28342d;
-  color: #f2f5f3;
-  box-shadow: none;
-}
-
-/* Brand */
-
-.gt-sidebar-dark .gt-sidebar-top {
-  border-bottom: 1px solid #28342d;
-}
-
-.gt-sidebar-dark .gt-sidebar-brand {
-  text-decoration: none;
-  color: #f2f5f3;
-}
-
-.gt-sidebar-dark .gt-brand-mark {
-  display: grid;
-  place-items: center;
-  background: #258457;
-  border: 1px solid #367e59;
-  border-radius: 11px;
-  box-shadow: none;
-}
-
-.gt-sidebar-dark .gt-sidebar-brand-text {
-  color: #f2f5f3;
-  font-weight: 800;
-  letter-spacing: -0.5px;
-}
-
-.gt-sidebar-dark .gt-sidebar-brand-text span {
-  color: #8bd4ab;
-}
-
-/* Collapse and mobile close */
-
-.gt-sidebar-dark .gt-sidebar-toggle,
-.gt-sidebar-dark .gt-sidebar-close {
-  color: #93a29a;
-  background: transparent;
-  border: 1px solid #28342d;
-  border-radius: 9px;
-}
-
-.gt-sidebar-dark .gt-sidebar-toggle:hover,
-.gt-sidebar-dark .gt-sidebar-close:hover {
-  color: #f2f5f3;
-  background: #242f29;
-}
-
-/* Menu label */
-
-.gt-sidebar-dark .gt-sidebar-section-label {
-  color: #71877a;
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 1.4px;
-}
-
-/* Navigation */
-
-.gt-sidebar-dark .gt-sidebar-nav {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-}
-
-.gt-sidebar-dark .gt-nav-link {
+/* Dark background overlay */
+.gt-logout-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
   display: flex;
   align-items: center;
-  gap: 12px;
-  min-height: 43px;
-  padding: 10px 13px;
-  color: #93a29a;
-  background: transparent;
-  border: 1px solid transparent;
-  border-radius: 10px;
-  text-decoration: none;
-  transition:
-    background 0.2s ease,
-    color 0.2s ease,
-    border-color 0.2s ease;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(5px);
 }
 
-.gt-sidebar-dark .gt-nav-link:hover {
-  color: #f2f5f3;
-  background: #202925;
-  border-color: #28342d;
-}
-
-.gt-sidebar-dark .gt-nav-link.gt-nav-active {
-  color: #e4f5e9;
-  background: #20372a;
-  border-color: #365442;
-  box-shadow: none;
-}
-
-.gt-sidebar-dark .gt-nav-icon {
-  display: grid;
-  place-items: center;
-  flex-shrink: 0;
-  color: inherit;
-}
-
-.gt-sidebar-dark .gt-nav-active .gt-nav-icon {
-  color: #8bd4ab;
-}
-
-.gt-sidebar-dark .gt-nav-text {
-  min-width: 0;
-}
-
-.gt-sidebar-dark .gt-nav-text strong {
-  color: inherit;
-  font-size: 13px;
-  font-weight: 550;
-}
-
-.gt-sidebar-dark .gt-nav-active .gt-nav-text strong {
-  font-weight: 700;
-}
-
-.gt-sidebar-dark .gt-nav-active-dot {
-  width: 6px;
-  height: 6px;
-  margin-left: auto;
-  border-radius: 50%;
-  background: #35b978;
-  box-shadow: none;
-}
-
-/* Profile and account */
-
-.gt-sidebar-dark .gt-sidebar-bottom {
-  border-top: 1px solid #28342d;
-  background: #101613;
-}
-
-.gt-sidebar-dark .gt-profile-button {
-  display: flex;
-  align-items: center;
+/* Confirmation popup */
+.gt-logout-modal {
   width: 100%;
-  gap: 11px;
-  padding: 11px;
-  border: 1px solid #28342d;
-  border-radius: 11px;
-  background: #171e1b;
+  max-width: 390px;
+  padding: 30px 26px;
+  border-radius: 20px;
+  background: #111c19;
+  border: 1px solid rgba(53, 185, 120, 0.2);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+  text-align: center;
+  animation: gtLogoutAppear 0.2s ease-out;
+}
+
+/* Logout icon */
+.gt-logout-modal-icon {
+  width: 58px;
+  height: 58px;
+  margin: 0 auto 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 16px;
+  background: #204a39;
+  color: #5ee2a0;
+}
+
+/* Title */
+.gt-logout-modal h2 {
+  margin: 0 0 10px;
+  font-size: 21px;
+  font-weight: 700;
   color: #f2f5f3;
-  text-align: left;
+}
+
+/* Description */
+.gt-logout-modal p {
+  margin: 0 0 26px;
+  font-size: 14px;
+  line-height: 1.6;
+  color: #a9b9b1;
+}
+
+/* Action buttons */
+.gt-logout-modal-actions {
+  display: flex;
+  gap: 12px;
+}
+
+.gt-logout-modal-actions button {
+  flex: 1;
+  min-height: 44px;
+  border: none;
+  border-radius: 11px;
+  font-size: 14px;
+  font-weight: 600;
   cursor: pointer;
   transition: background 0.2s ease;
 }
 
-.gt-sidebar-dark .gt-profile-button:hover {
-  background: #202925;
-  border-color: #42634e;
-}
-
-.gt-sidebar-dark .gt-profile-avatar {
-  display: grid;
-  place-items: center;
-  flex-shrink: 0;
-  width: 37px;
-  height: 37px;
-  border-radius: 10px;
-  background: #284c36;
-  color: #b5efcb;
-  font-size: 12px;
-  font-weight: 750;
-}
-
-.gt-sidebar-dark .gt-profile-info {
-  flex: 1;
-  min-width: 0;
-}
-
-.gt-sidebar-dark .gt-profile-info strong {
-  display: block;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+/* Cancel */
+.gt-logout-cancel {
+  background: #293630;
   color: #f2f5f3;
-  font-size: 12px;
-  font-weight: 650;
 }
 
-.gt-sidebar-dark .gt-profile-info small {
-  display: block;
-  margin-top: 3px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  color: #93a29a;
-  font-size: 10px;
+.gt-logout-cancel:hover {
+  background: #37483f;
 }
 
-.gt-sidebar-dark .gt-profile-arrow {
-  color: #93a29a;
-  font-size: 22px;
+/* Confirm sign out */
+.gt-logout-confirm {
+  background: #35b978;
+  color: #10251a;
 }
 
-.gt-sidebar-dark .gt-logout-button {
-  display: flex;
-  align-items: center;
-  gap: 11px;
-  width: 100%;
-  margin-top: 9px;
-  padding: 11px 13px;
-  border: 1px solid transparent;
-  border-radius: 10px;
-  background: transparent;
-  color: #93a29a;
-  font-size: 12px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background 0.2s ease, color 0.2s ease;
+.gt-logout-confirm:hover {
+  background: #48d18d;
 }
 
-.gt-sidebar-dark .gt-logout-button:hover {
-  color: #fca5a5;
-  background: rgba(248, 113, 113, 0.08);
+/* Keyboard focus */
+.gt-logout-modal-actions button:focus-visible {
+  outline: 2px solid #5ee2a0;
+  outline-offset: 3px;
 }
 
-/* Collapsed sidebar */
+/* Opening animation */
+@keyframes gtLogoutAppear {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.97);
+  }
 
-.gt-sidebar-dark.gt-sidebar-collapsed .gt-nav-link {
-  justify-content: center;
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
-.gt-sidebar-dark.gt-sidebar-collapsed .gt-nav-text,
-.gt-sidebar-dark.gt-sidebar-collapsed .gt-nav-active-dot,
-.gt-sidebar-dark.gt-sidebar-collapsed .gt-profile-info,
-.gt-sidebar-dark.gt-sidebar-collapsed .gt-profile-arrow,
-.gt-sidebar-dark.gt-sidebar-collapsed .gt-logout-text {
-  display: none;
+/* Mobile responsiveness */
+@media (max-width: 480px) {
+  .gt-logout-modal {
+    padding: 26px 20px;
+    border-radius: 16px;
+  }
+
+  .gt-logout-modal h2 {
+    font-size: 19px;
+  }
 }
 
-.gt-sidebar-dark.gt-sidebar-collapsed .gt-profile-button,
-.gt-sidebar-dark.gt-sidebar-collapsed .gt-logout-button {
-  justify-content: center;
-}
-
-/* Keyboard accessibility */
-
-.gt-sidebar-dark button:focus-visible,
-.gt-sidebar-dark a:focus-visible {
-  outline: 2px solid #35b978;
-  outline-offset: 2px;
-}
-
+/* Accessibility */
 @media (prefers-reduced-motion: reduce) {
-  .gt-sidebar-dark .gt-nav-link,
-  .gt-sidebar-dark .gt-profile-button,
-  .gt-sidebar-dark .gt-logout-button {
-    transition: none;
+  .gt-logout-modal {
+    animation: none;
   }
 }

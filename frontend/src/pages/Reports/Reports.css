@@ -1,0 +1,501 @@
+
+/* ==========================================
+   GREENTRACK - REPORTS PAGE
+========================================== */
+
+.gt-report-page {
+  min-height: 100vh;
+  padding: 30px 32px 48px;
+  background: #0c1110;
+  color: #f2f5f3;
+  box-sizing: border-box;
+}
+
+.gt-report-page *,
+.gt-report-page *::before,
+.gt-report-page *::after {
+  box-sizing: border-box;
+}
+
+/* HEADER */
+
+.gt-report-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 20px;
+  margin-bottom: 26px;
+}
+
+.gt-report-eyebrow {
+  margin: 0 0 8px;
+  color: #35b978;
+  font-size: 10px;
+  font-weight: 750;
+  letter-spacing: 1.6px;
+}
+
+.gt-report-header h1 {
+  margin: 0;
+  font-size: clamp(26px, 3vw, 32px);
+  font-weight: 750;
+  letter-spacing: -0.8px;
+  line-height: 1.2;
+}
+
+.gt-report-subtitle {
+  margin: 8px 0 0;
+  color: #93a29a;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+/* EXPORT ACTIONS */
+
+.gt-report-export-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.gt-report-export-btn {
+  min-height: 42px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  padding: 10px 17px;
+  background: #258457;
+  border: 1px solid #258457;
+  border-radius: 10px;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition:
+    background 0.2s,
+    border-color 0.2s,
+    transform 0.2s;
+}
+
+.gt-report-export-btn:hover:not(:disabled) {
+  background: #2c9965;
+  transform: translateY(-1px);
+}
+
+.gt-report-export-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.gt-report-pdf-btn {
+  background: #202925;
+  border-color: #34443b;
+  color: #f2f5f3;
+}
+
+.gt-report-pdf-btn:hover:not(:disabled) {
+  background: #2a3730;
+  border-color: #35b978;
+}
+
+.gt-report-download-icon {
+  font-size: 19px;
+  line-height: 1;
+}
+
+/* PANELS */
+
+.gt-report-panel {
+  min-width: 0;
+  padding: 20px;
+  background: #171e1b;
+  border: 1px solid #28342d;
+  border-radius: 14px;
+}
+
+.gt-report-filter-panel {
+  margin-bottom: 24px;
+}
+
+/* SECTION HEADINGS */
+
+.gt-report-section-heading,
+.gt-report-summary-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.gt-report-section-heading h2,
+.gt-report-summary-heading h2 {
+  margin: 0;
+  color: #f2f5f3;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.gt-report-section-heading p,
+.gt-report-summary-heading p {
+  margin: 6px 0 0;
+  color: #93a29a;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+/* FILTERS */
+
+.gt-report-filter-controls {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.gt-report-field {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  min-width: 0;
+}
+
+.gt-report-field span {
+  color: #93a29a;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.gt-report-field select,
+.gt-report-field input {
+  width: 100%;
+  min-height: 40px;
+  padding: 9px 12px;
+  background: #202925;
+  border: 1px solid #34443b;
+  border-radius: 9px;
+  color: #f2f5f3;
+  font-size: 12px;
+  font-family: inherit;
+  color-scheme: dark;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.gt-report-field select:focus,
+.gt-report-field input:focus {
+  border-color: #35b978;
+}
+
+/* FINANCIAL SUMMARY */
+
+.gt-report-summary-section {
+  margin-bottom: 24px;
+}
+
+.gt-report-summary-grid {
+  display: grid;
+  gap: 15px;
+}
+
+.gt-report-summary-three {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.gt-report-summary-two {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.gt-report-stat-card {
+  min-width: 0;
+  padding: 18px 20px;
+  background: #171e1b;
+  border: 1px solid #28342d;
+  border-radius: 14px;
+  transition: border-color 0.2s, transform 0.2s;
+}
+
+.gt-report-stat-card:hover {
+  border-color: #344c3c;
+  transform: translateY(-2px);
+}
+
+.gt-report-stat-label {
+  display: block;
+  color: #93a29a;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.gt-report-stat-value {
+  margin: 16px 0 8px;
+  color: #f2f5f3;
+  font-size: clamp(18px, 2vw, 24px);
+  font-weight: 750;
+  letter-spacing: -0.4px;
+  overflow-wrap: anywhere;
+}
+
+.gt-report-stat-value.gt-report-negative {
+  color: #f28b82;
+}
+
+.gt-report-stat-card p {
+  margin: 0;
+  color: #93a29a;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+/* RECORD COUNT */
+
+.gt-report-count {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 11px;
+  background: rgba(53, 185, 120, 0.1);
+  border: 1px solid rgba(53, 185, 120, 0.18);
+  border-radius: 20px;
+  color: #8bd4ab;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* TRANSACTION TABLE */
+
+.gt-report-table-wrapper {
+  width: 100%;
+  overflow-x: auto;
+  border-radius: 9px;
+}
+
+.gt-report-table {
+  width: 100%;
+  min-width: 690px;
+  border-collapse: collapse;
+  text-align: left;
+}
+
+.gt-report-table th {
+  padding: 13px 12px;
+  color: #93a29a;
+  font-size: 12px;
+  font-weight: 600;
+  border-bottom: 1px solid #34443b;
+  white-space: nowrap;
+}
+
+.gt-report-table td {
+  padding: 15px 12px;
+  color: #dce5df;
+  font-size: 12px;
+  border-bottom: 1px solid #28342d;
+  vertical-align: middle;
+}
+
+.gt-report-table tbody tr {
+  transition: background 0.2s;
+}
+
+.gt-report-table tbody tr:hover {
+  background: #202925;
+}
+
+.gt-report-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.gt-report-align-right {
+  text-align: right;
+}
+
+.gt-report-description {
+  max-width: 260px;
+  overflow-wrap: anywhere;
+}
+
+/* TRANSACTION BADGES */
+
+.gt-report-type {
+  display: inline-flex;
+  padding: 5px 9px;
+  border-radius: 7px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.gt-report-type.income {
+  color: #8bd4ab;
+  background: rgba(53, 185, 120, 0.1);
+}
+
+.gt-report-type.expense {
+  color: #f28b82;
+  background: rgba(242, 139, 130, 0.1);
+}
+
+/* AMOUNTS */
+
+.gt-report-amount {
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.gt-report-amount.income {
+  color: #8bd4ab;
+}
+
+.gt-report-amount.expense {
+  color: #f28b82;
+}
+
+.gt-report-unavailable {
+  color: #e5b76d;
+  white-space: normal;
+}
+
+/* EMPTY STATE */
+
+.gt-report-empty {
+  display: flex;
+  min-height: 210px;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 8px;
+  color: #93a29a;
+  font-size: 13px;
+}
+
+.gt-report-empty-icon {
+  font-size: 32px;
+  color: #35b978;
+}
+
+.gt-report-empty h3 {
+  margin: 0;
+  color: #f2f5f3;
+  font-size: 16px;
+}
+
+.gt-report-empty p {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+/* WARNINGS AND ERRORS */
+
+.gt-report-alert {
+  margin-bottom: 20px;
+  padding: 15px 17px;
+  border-radius: 10px;
+  font-size: 12px;
+  line-height: 1.7;
+}
+
+.gt-report-warning {
+  color: #e5b76d;
+  background: rgba(245, 158, 11, 0.08);
+  border: 1px solid rgba(245, 158, 11, 0.22);
+}
+
+.gt-report-warning p {
+  margin: 4px 0 0;
+}
+
+.gt-report-error {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  color: #f28b82;
+  background: rgba(242, 139, 130, 0.08);
+  border: 1px solid rgba(242, 139, 130, 0.22);
+}
+
+.gt-report-error button {
+  padding: 7px 12px;
+  border: 1px solid rgba(242, 139, 130, 0.4);
+  border-radius: 8px;
+  background: transparent;
+  color: #f28b82;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+/* FOOTER */
+
+.gt-report-footer {
+  margin: 16px 0 0;
+  color: #71877a;
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+/* RESPONSIVE */
+
+@media (max-width: 1100px) {
+  .gt-report-filter-controls {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 700px) {
+  .gt-report-page {
+    padding: 22px 16px 36px;
+  }
+
+  .gt-report-header {
+    align-items: flex-start;
+    gap: 16px;
+  }
+
+  .gt-report-export-actions {
+    width: 100%;
+  }
+
+  .gt-report-export-actions .gt-report-export-btn {
+    flex: 1;
+    min-width: 125px;
+  }
+
+  .gt-report-filter-panel,
+  .gt-report-transactions {
+    padding: 16px;
+  }
+
+  .gt-report-summary-grid {
+    gap: 12px;
+  }
+
+  .gt-report-stat-card {
+    padding: 16px;
+  }
+}
+
+@media (max-width: 480px) {
+  .gt-report-filter-controls {
+    grid-template-columns: 1fr;
+  }
+
+  .gt-report-summary-three,
+  .gt-report-summary-two {
+    grid-template-columns: 1fr;
+  }
+
+  .gt-report-stat-value {
+    font-size: 22px;
+  }
+
+  .gt-report-section-heading,
+  .gt-report-summary-heading {
+    align-items: flex-start;
+  }
+}

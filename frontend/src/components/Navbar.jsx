@@ -1,6 +1,6 @@
 
 import { useEffect, useState } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link } from "react-router-dom";
 import GreenTrackLogo from "./GreenTrackLogo";
 import "./Navbar.css";
 
@@ -13,18 +13,27 @@ const links = [
 export default function Navbar() {
   const [scrolled, setScrolled] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
-  const location = useLocation();
 
+  // Update navbar appearance when scrolling
   useEffect(() => {
-    const update = () => setScrolled(window.scrollY > 20);
+    const update = () => {
+      setScrolled(window.scrollY > 20);
+    };
+
     update();
-    window.addEventListener("scroll", update, { passive: true });
-    return () => window.removeEventListener("scroll", update);
+
+    window.addEventListener("scroll", update, {
+      passive: true,
+    });
+
+    return () => {
+      window.removeEventListener("scroll", update);
+    };
   }, []);
 
-  useEffect(() => {
+  const closeMenu = () => {
     setMenuOpen(false);
-  }, [location]);
+  };
 
   return (
     <header className={`gt-navbar ${scrolled ? "is-scrolled" : ""}`}>
@@ -40,10 +49,19 @@ export default function Navbar() {
         </nav>
 
         <div className="gt-nav-actions">
-          <Link to="/login" className="gt-nav-signin">
+          <Link
+            to="/login"
+            className="gt-nav-signin"
+            onClick={closeMenu}
+          >
             Sign in
           </Link>
-          <Link to="/register" className="gt-nav-cta">
+
+          <Link
+            to="/register"
+            className="gt-nav-cta"
+            onClick={closeMenu}
+          >
             Get started
           </Link>
         </div>
@@ -54,29 +72,36 @@ export default function Navbar() {
           onClick={() => setMenuOpen((value) => !value)}
           aria-label="Toggle navigation"
           aria-expanded={menuOpen}
+          aria-controls="gt-mobile-navigation"
         >
           {menuOpen ? "✕" : "☰"}
         </button>
       </div>
 
       {menuOpen && (
-        <nav className="gt-mobile-nav" aria-label="Mobile navigation">
+        <nav
+          id="gt-mobile-navigation"
+          className="gt-mobile-nav"
+          aria-label="Mobile navigation"
+        >
           {links.map((item) => (
             <a
               key={item.label}
               href={item.href}
-              onClick={() => setMenuOpen(false)}
+              onClick={closeMenu}
             >
               {item.label}
             </a>
           ))}
-          <Link to="/login" onClick={() => setMenuOpen(false)}>
+
+          <Link to="/login" onClick={closeMenu}>
             Sign in
           </Link>
+
           <Link
             to="/register"
             className="gt-mobile-cta"
-            onClick={() => setMenuOpen(false)}
+            onClick={closeMenu}
           >
             Get started
           </Link>

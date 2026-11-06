@@ -8,7 +8,7 @@ import {
   ResponsiveContainer,
 } from "recharts";
 
-import { useCurrency } from "../../../context/CurrencyContext";
+import { useCurrency } from "../../../context//useCurrency";
 
 const SOURCE_COLORS = {
   Salary: "#35b978",

@@ -4,7 +4,7 @@ import { authAPI } from "../api/auth";
 import countries from "../data/countries";
 import { currencies } from "../data/currencies";
 import countryCurrencyMap from "../data/countryCurrencyMap";
-import { useCurrency } from "../context/CurrencyContext";
+import { useCurrency } from "../context//useCurrency";
 import "./ProfileModal.css";
 
 export default function ProfileModal({ onClose }) {

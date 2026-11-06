@@ -1,5 +1,5 @@
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { expenseAPI } from "../../../api/expense";
 import { currencies } from "../../../data/currencies";
 
@@ -14,6 +14,17 @@ const categories = [
   "Other",
 ];
 
+// Initialize form values for Add or Edit mode
+const getInitialForm = (editData, defaultCurrency) => ({
+  amount: editData?.amount ?? "",
+  category: editData?.category ?? "",
+  date: editData?.date
+    ? String(editData.date).slice(0, 10)
+    : "",
+  description: editData?.description ?? "",
+  currency: editData?.currency || defaultCurrency,
+});
+
 export default function ExpenseForm({
   onClose,
   onSaved,
@@ -22,33 +33,17 @@ export default function ExpenseForm({
 }) {
   const isEdit = Boolean(editData);
 
-  const [form, setForm] = useState({
-    amount: "",
-    category: "",
-    date: "",
-    description: "",
-    currency: defaultCurrency,
-  });
+  // Initialize form once when the modal opens
+  const [form, setForm] = useState(() =>
+    getInitialForm(editData, defaultCurrency)
+  );
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  useEffect(() => {
-    if (editData) {
-      setForm({
-        amount: editData.amount ?? "",
-        category: editData.category ?? "",
-        date: editData.date
-          ? String(editData.date).slice(0, 10)
-          : "",
-        description: editData.description ?? "",
-        currency: editData.currency || defaultCurrency,
-      });
-    }
-  }, [editData, defaultCurrency]);
-
-  const handleChange = (e) => {
-    const { name, value } = e.target;
+  // Handle form field changes
+  const handleChange = (event) => {
+    const { name, value } = event.target;
 
     setForm((previous) => ({
       ...previous,
@@ -56,10 +51,13 @@ export default function ExpenseForm({
     }));
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  // Handle Add or Edit submission
+  const handleSubmit = async (event) => {
+    event.preventDefault();
 
-    if (!form.amount || Number(form.amount) <= 0) {
+    const amount = Number(form.amount);
+
+    if (!Number.isFinite(amount) || amount <= 0) {
       setError("Please enter a valid amount.");
       return;
     }
@@ -74,7 +72,7 @@ export default function ExpenseForm({
 
     try {
       const payload = {
-        amount: Number(form.amount),
+        amount,
         category: form.category,
         date: form.date,
         description: form.description,
@@ -110,8 +108,11 @@ export default function ExpenseForm({
   return (
     <div
       className="gt-expense-modal-overlay"
-      onMouseDown={(e) => {
-        if (e.target === e.currentTarget && !loading) {
+      onMouseDown={(event) => {
+        if (
+          event.target === event.currentTarget &&
+          !loading
+        ) {
           onClose();
         }
       }}
@@ -122,6 +123,7 @@ export default function ExpenseForm({
         aria-modal="true"
         aria-labelledby="gt-expense-modal-title"
       >
+        {/* MODAL HEADER */}
         <div className="gt-expense-modal-header">
           <div>
             <p className="gt-expense-modal-eyebrow">
@@ -146,19 +148,27 @@ export default function ExpenseForm({
           </button>
         </div>
 
+        {/* ERROR MESSAGE */}
         {error && (
-          <div className="gt-expense-form-error" role="alert">
+          <div
+            className="gt-expense-form-error"
+            role="alert"
+          >
             {error}
           </div>
         )}
 
+        {/* EXPENSE FORM */}
         <form
           className="gt-expense-form"
           onSubmit={handleSubmit}
         >
           <div className="gt-expense-form-grid">
+            {/* AMOUNT */}
             <div className="gt-expense-field">
-              <label htmlFor="expense-amount">Amount</label>
+              <label htmlFor="expense-amount">
+                Amount
+              </label>
 
               <input
                 id="expense-amount"
@@ -173,6 +183,7 @@ export default function ExpenseForm({
               />
             </div>
 
+            {/* CURRENCY */}
             <div className="gt-expense-field">
               <label htmlFor="expense-currency">
                 Currency
@@ -186,7 +197,10 @@ export default function ExpenseForm({
                 required
               >
                 {currencies.map((item) => (
-                  <option key={item.code} value={item.code}>
+                  <option
+                    key={item.code}
+                    value={item.code}
+                  >
                     {item.code} - {item.name}
                   </option>
                 ))}
@@ -194,6 +208,7 @@ export default function ExpenseForm({
             </div>
           </div>
 
+          {/* CATEGORY */}
           <div className="gt-expense-field">
             <label htmlFor="expense-category">
               Category
@@ -206,18 +221,26 @@ export default function ExpenseForm({
               onChange={handleChange}
               required
             >
-              <option value="">Select category</option>
+              <option value="">
+                Select category
+              </option>
 
               {categories.map((category) => (
-                <option key={category} value={category}>
+                <option
+                  key={category}
+                  value={category}
+                >
                   {category}
                 </option>
               ))}
             </select>
           </div>
 
+          {/* DATE */}
           <div className="gt-expense-field">
-            <label htmlFor="expense-date">Date</label>
+            <label htmlFor="expense-date">
+              Date
+            </label>
 
             <input
               id="expense-date"
@@ -228,6 +251,7 @@ export default function ExpenseForm({
             />
           </div>
 
+          {/* DESCRIPTION */}
           <div className="gt-expense-field">
             <label htmlFor="expense-description">
               Notes
@@ -243,6 +267,7 @@ export default function ExpenseForm({
             />
           </div>
 
+          {/* FORM ACTIONS */}
           <div className="gt-expense-modal-footer">
             <button
               type="button"
@@ -261,8 +286,8 @@ export default function ExpenseForm({
               {loading
                 ? "Saving..."
                 : isEdit
-                ? "Save Changes"
-                : "Add Expense"}
+                  ? "Save Changes"
+                  : "Add Expense"}
             </button>
           </div>
         </form>

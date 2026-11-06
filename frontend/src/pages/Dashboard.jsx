@@ -5,7 +5,7 @@ import { Link } from "react-router-dom";
 import { incomeAPI } from "../api/income";
 import { expenseAPI } from "../api/expense";
 import { authAPI } from "../api/auth";
-import { useCurrency } from "../context/CurrencyContext";
+import { useCurrency } from "../context/useCurrency";
 
 import "./Dashboard.css";
 
@@ -485,7 +485,7 @@ export default function Dashboard() {
      FINANCIAL CALCULATIONS
   ============================================ */
 
-  const financials = useMemo(() => {
+  const financials = (() => {
     let missingRate = false;
 
     let allIncome = 0;
@@ -601,17 +601,7 @@ export default function Dashboard() {
       previousExpenses,
       missingRate,
     };
-  }, [
-    incomes,
-    expenses,
-    baseCurrency,
-    convertAmount,
-    hasRate,
-    currentYear,
-    currentMonth,
-    previousYear,
-    previousMonth,
-  ]);
+  })();
 
   /* ============================================
      MONTHLY COMPARISONS

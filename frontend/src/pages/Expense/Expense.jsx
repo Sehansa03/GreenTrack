@@ -7,7 +7,7 @@ import ExpenseChart from "./expense_components/ExpenseChart";
 import ExpenseFilter from "./expense_components/ExpenseFilter";
 import ExpenseSummary from "./expense_components/ExpenseSummary";
 
-import { useCurrency } from "../../context/CurrencyContext";
+import { useCurrency } from "../../context/useCurrency";
 import { expenseAPI } from "../../api/expense";
 
 import "./Expense.css";
@@ -40,10 +40,12 @@ export default function Expense() {
 
   const currencyLoading = profileLoading || ratesLoading;
 
+  // Fetch expense records for refresh and retry
   const fetchExpenses = async () => {
-    try {
-      setFetchError("");
+    setFetching(true);
+    setFetchError("");
 
+    try {
       const res = await expenseAPI.getAll();
       const payload = res.data?.data ?? res.data;
 
@@ -60,10 +62,44 @@ export default function Expense() {
     }
   };
 
+  // Load expenses when the page first opens
   useEffect(() => {
-    fetchExpenses();
+    let active = true;
+
+    const loadInitialExpenses = async () => {
+      try {
+        const res = await expenseAPI.getAll();
+
+        if (!active) return;
+
+        const payload = res.data?.data ?? res.data;
+
+        const records = Array.isArray(payload)
+          ? payload
+          : payload?.expenses ?? [];
+
+        setExpenses(records);
+        setFetchError("");
+      } catch (err) {
+        if (!active) return;
+
+        console.error("Failed to fetch expenses:", err);
+        setFetchError("Unable to load expense records.");
+      } finally {
+        if (active) {
+          setFetching(false);
+        }
+      }
+    };
+
+    void loadInitialExpenses();
+
+    return () => {
+      active = false;
+    };
   }, []);
 
+  // Filter expense records
   const filteredExpenses = useMemo(() => {
     return expenses.filter((expense) => {
       const categoryMatch = (expense.category || "")
@@ -90,6 +126,7 @@ export default function Expense() {
     });
   }, [expenses, filters, baseCurrency]);
 
+  // Calculate total expense in preferred currency
   const totalExpense = useMemo(() => {
     return filteredExpenses.reduce((sum, expense) => {
       const converted = convertAmount(
@@ -107,29 +144,35 @@ export default function Expense() {
     }, 0);
   }, [filteredExpenses, convertAmount, baseCurrency]);
 
+  // Count expenses without available exchange rates
   const unavailableRateCount = useMemo(() => {
     return filteredExpenses.filter(
       (expense) => !hasRate(expense.currency || baseCurrency)
     ).length;
   }, [filteredExpenses, hasRate, baseCurrency]);
 
-  const activeFilterCount = Object.values(filters).filter(Boolean).length;
+  const activeFilterCount =
+    Object.values(filters).filter(Boolean).length;
 
+  // Open edit modal
   const handleEdit = (expense) => {
     setEditData(expense);
     setShowModal(true);
   };
 
+  // Close modal
   const handleClose = () => {
     setShowModal(false);
     setEditData(null);
   };
 
+  // Refresh records after saving
   const handleSaved = async () => {
     handleClose();
     await fetchExpenses();
   };
 
+  // Remove deleted expense from state
   const handleDeleted = (id) => {
     setExpenses((previous) =>
       previous.filter((expense) => expense._id !== id)
@@ -169,7 +212,11 @@ export default function Expense() {
       {fetchError && (
         <div className="gt-expense-error" role="alert">
           {fetchError}
-          <button type="button" onClick={fetchExpenses}>
+
+          <button
+            type="button"
+            onClick={fetchExpenses}
+          >
             Retry
           </button>
         </div>
@@ -185,10 +232,15 @@ export default function Expense() {
 
       {/* EXCHANGE RATE WARNING */}
       {!currencyLoading && unavailableRateCount > 0 && (
-        <div className="gt-expense-warning" role="status">
+        <div
+          className="gt-expense-warning"
+          role="status"
+        >
           <span aria-hidden="true">!</span>
+
           <div>
             <strong>Exchange rates unavailable</strong>
+
             <p>
               {unavailableRateCount} expense{" "}
               {unavailableRateCount === 1
@@ -208,6 +260,7 @@ export default function Expense() {
           <div className="gt-expense-section-heading">
             <div>
               <h2>Transactions</h2>
+
               <p>
                 {filteredExpenses.length} expense{" "}
                 {filteredExpenses.length === 1
@@ -221,7 +274,9 @@ export default function Expense() {
               className={`gt-expense-filter-toggle ${
                 showFilters ? "is-active" : ""
               }`}
-              onClick={() => setShowFilters((previous) => !previous)}
+              onClick={() =>
+                setShowFilters((previous) => !previous)
+              }
               aria-expanded={showFilters}
             >
               <svg
@@ -246,16 +301,20 @@ export default function Expense() {
             </button>
           </div>
 
+          {/* FILTER DRAWER */}
           {showFilters && (
             <div className="gt-expense-filter-drawer">
               <ExpenseFilter
                 filters={filters}
                 setFilters={setFilters}
-                onClear={() => setFilters({ ...emptyFilters })}
+                onClear={() =>
+                  setFilters({ ...emptyFilters })
+                }
               />
             </div>
           )}
 
+          {/* EXPENSE TABLE */}
           {fetching ? (
             <div className="gt-expense-loading">
               Loading transactions...
@@ -269,7 +328,7 @@ export default function Expense() {
           )}
         </section>
 
-        {/* DISTRIBUTION */}
+        {/* EXPENSE DISTRIBUTION CHART */}
         <section className="gt-expense-panel">
           <ExpenseChart
             expenses={filteredExpenses}

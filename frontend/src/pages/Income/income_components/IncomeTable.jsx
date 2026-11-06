@@ -1,7 +1,7 @@
 
 import { useState } from "react";
 import { incomeAPI } from "../../../api/income";
-import { useCurrency } from "../../../context/CurrencyContext";
+import { useCurrency } from "../../../context//useCurrency";
 
 export default function IncomeTable({
   incomes = [],

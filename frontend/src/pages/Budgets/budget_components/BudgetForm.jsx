@@ -1,7 +1,7 @@
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { budgetAPI } from "../../../api/budget";
-import { useCurrency } from "../../../context/CurrencyContext";
+import { useCurrency } from "../../../context/useCurrency";
 
 const categories = [
   "Food",
@@ -15,10 +15,28 @@ const categories = [
 ];
 
 const months = [
-  "January", "February", "March", "April",
-  "May", "June", "July", "August",
-  "September", "October", "November", "December",
+  "January",
+  "February",
+  "March",
+  "April",
+  "May",
+  "June",
+  "July",
+  "August",
+  "September",
+  "October",
+  "November",
+  "December",
 ];
+
+// Initialize form values for Add or Edit mode
+const getInitialForm = (editData) => ({
+  category: editData?.category || "",
+  amount: editData?.amount ?? "",
+  budgetType: editData?.budgetType || "monthly",
+  year: editData?.year || new Date().getFullYear(),
+  month: editData?.month || new Date().getMonth() + 1,
+});
 
 export default function BudgetForm({
   editData,
@@ -34,31 +52,17 @@ export default function BudgetForm({
     editData?.currency ||
     baseCurrency;
 
-  const [formData, setFormData] = useState({
-    category: "",
-    amount: "",
-    budgetType: "monthly",
-    year: new Date().getFullYear(),
-    month: new Date().getMonth() + 1,
-  });
+  // Initialize form when modal opens
+  const [formData, setFormData] = useState(() =>
+    getInitialForm(editData)
+  );
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  useEffect(() => {
-    if (editData) {
-      setFormData({
-        category: editData.category || "",
-        amount: editData.amount ?? "",
-        budgetType: editData.budgetType || "monthly",
-        year: editData.year || new Date().getFullYear(),
-        month: editData.month || new Date().getMonth() + 1,
-      });
-    }
-  }, [editData]);
-
-  const handleChange = (e) => {
-    const { name, value } = e.target;
+  // Handle form input changes
+  const handleChange = (event) => {
+    const { name, value } = event.target;
 
     setFormData((previous) => ({
       ...previous,
@@ -66,8 +70,9 @@ export default function BudgetForm({
     }));
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  // Handle budget submission
+  const handleSubmit = async (event) => {
+    event.preventDefault();
     setError("");
 
     const amount = Number(formData.amount);
@@ -100,7 +105,7 @@ export default function BudgetForm({
       setLoading(true);
 
       if (isEditing) {
-        // Update the stored amount in its original currency.
+        // Update amount in its original currency
         await budgetAPI.update(editData._id, {
           amount,
         });
@@ -118,7 +123,11 @@ export default function BudgetForm({
         });
       }
 
-      onSuccess();
+      if (onSuccess) {
+        await onSuccess();
+      } else {
+        onClose();
+      }
     } catch (err) {
       console.error("Budget save error:", err);
 
@@ -139,6 +148,7 @@ export default function BudgetForm({
         aria-modal="true"
         aria-labelledby="budget-modal-title"
       >
+        {/* MODAL HEADER */}
         <div className="gt-budget-modal-header">
           <div>
             <p className="gt-budget-modal-eyebrow">
@@ -167,10 +177,12 @@ export default function BudgetForm({
           </button>
         </div>
 
+        {/* BUDGET FORM */}
         <form
           className="gt-budget-form"
           onSubmit={handleSubmit}
         >
+          {/* EDIT MODE INFORMATION */}
           {isEditing ? (
             <div className="gt-budget-edit-info">
               <div>
@@ -193,6 +205,7 @@ export default function BudgetForm({
               </div>
             </div>
           ) : (
+            /* CATEGORY - ADD MODE */
             <div className="gt-budget-field">
               <label htmlFor="budget-category">
                 Category
@@ -205,7 +218,9 @@ export default function BudgetForm({
                 onChange={handleChange}
                 required
               >
-                <option value="">Select category</option>
+                <option value="">
+                  Select category
+                </option>
 
                 {categories.map((category) => (
                   <option
@@ -219,6 +234,7 @@ export default function BudgetForm({
             </div>
           )}
 
+          {/* AMOUNT */}
           <div className="gt-budget-field">
             <label htmlFor="budget-amount">
               Budget Amount
@@ -245,6 +261,7 @@ export default function BudgetForm({
             </div>
           </div>
 
+          {/* ADD MODE FIELDS */}
           {!isEditing && (
             <>
               <div className="gt-budget-field">
@@ -258,12 +275,18 @@ export default function BudgetForm({
                   value={formData.budgetType}
                   onChange={handleChange}
                 >
-                  <option value="monthly">Monthly</option>
-                  <option value="yearly">Yearly</option>
+                  <option value="monthly">
+                    Monthly
+                  </option>
+
+                  <option value="yearly">
+                    Yearly
+                  </option>
                 </select>
               </div>
 
               <div className="gt-budget-form-grid">
+                {/* YEAR */}
                 <div className="gt-budget-field">
                   <label htmlFor="budget-year">
                     Year
@@ -281,6 +304,7 @@ export default function BudgetForm({
                   />
                 </div>
 
+                {/* MONTH */}
                 {formData.budgetType === "monthly" && (
                   <div className="gt-budget-field">
                     <label htmlFor="budget-month">
@@ -308,6 +332,7 @@ export default function BudgetForm({
             </>
           )}
 
+          {/* ERROR MESSAGE */}
           {error && (
             <div
               className="gt-budget-form-error"
@@ -317,6 +342,7 @@ export default function BudgetForm({
             </div>
           )}
 
+          {/* FORM ACTIONS */}
           <div className="gt-budget-modal-footer">
             <button
               type="button"
@@ -335,8 +361,8 @@ export default function BudgetForm({
               {loading
                 ? "Saving..."
                 : isEditing
-                ? "Update Budget"
-                : "Add Budget"}
+                  ? "Update Budget"
+                  : "Add Budget"}
             </button>
           </div>
         </form>

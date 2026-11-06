@@ -111,9 +111,31 @@ export default function Sidebar({
   const [user, setUser] = useState(null);
   const [showProfile, setShowProfile] = useState(false);
 
-  const loadUser = async () => {
+
+const loadUser = async () => {
+  try {
+    const res = await authAPI.getProfile();
+
+    const profile =
+      res.data?.data?.user ||
+      res.data?.data ||
+      res.data?.user ||
+      res.data;
+
+    setUser(profile);
+  } catch (error) {
+    console.error("Failed to load profile:", error);
+  }
+};
+
+useEffect(() => {
+  let active = true;
+
+  const fetchProfile = async () => {
     try {
       const res = await authAPI.getProfile();
+
+      if (!active) return;
 
       const profile =
         res.data?.data?.user ||
@@ -123,22 +145,32 @@ export default function Sidebar({
 
       setUser(profile);
     } catch (error) {
-      console.error("Failed to load profile:", error);
+      if (active) {
+        console.error("Failed to load profile:", error);
+      }
     }
   };
 
-  useEffect(() => {
-    loadUser();
-  }, []);
+  fetchProfile();
+
+  return () => {
+    active = false;
+  };
+}, []);
+
 
   const closeMobile = () => {
     onMobileClose?.();
   };
 
-  const handleLogout = () => {
-    closeMobile();
-    navigate("/login");
-  };
+
+const handleLogout = () => {
+  localStorage.removeItem("token");
+  closeMobile();
+  setUser(null);
+  navigate("/login", { replace: true });
+};
+
 
   const initials = (user?.fullName || "User")
     .split(" ")

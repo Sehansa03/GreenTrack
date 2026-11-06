@@ -1,7 +1,7 @@
 
 import { useEffect, useState } from "react";
 import { budgetAPI } from "../../api/budget";
-import { useCurrency } from "../../context/CurrencyContext";
+import { useCurrency } from "../../context/useCurrency";
 import BudgetForm from "./budget_components/BudgetForm";
 import "./Budgets.css";
 
@@ -66,7 +66,33 @@ export default function Budgets() {
   };
 
   useEffect(() => {
-    loadBudgets();
+    let active = true;
+
+    const loadForCurrency = async () => {
+      try {
+        const res = await budgetAPI.getAll();
+        if (!active) return;
+
+        const payload = res.data?.data ?? res.data;
+        setBudgets(Array.isArray(payload) ? payload : []);
+        setError("");
+      } catch (err) {
+        if (!active) return;
+
+        console.error("Failed to load budgets:", err);
+        setError(
+          err.response?.data?.message || "Failed to load budgets."
+        );
+      } finally {
+        if (active) setLoading(false);
+      }
+    };
+
+    void loadForCurrency();
+
+    return () => {
+      active = false;
+    };
   }, [baseCurrency]);
 
   const filteredBudgets = budgets.filter((budget) => {

@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { incomeAPI } from "../../api/income";
 import { expenseAPI } from "../../api/expense";
-import { useCurrency } from "../../context/CurrencyContext";
+import { useCurrency } from "../../context//useCurrency";
 
 import IncomeExpenseChart from "./IncomeExpenseChart";
 import CashFlowChart from "./CashFlowChart";
